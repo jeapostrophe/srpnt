@@ -3,25 +3,11 @@
 (require ffi/vector
          ffi/unsafe
          (only-in '#%foreign ffi-callback)
-         (rename-in racket/contract [-> c->])
          portaudio/portaudio
          portaudio/callback-support
          portaudio/devices
          racket/bool
-         rackunit
-         rackunit/text-ui
          racket/math)
-
-;; this module provides a function that plays a sound.
-
-(define nat? exact-nonnegative-integer?)
-
-(provide/contract [s16vec-play (c-> s16vector? nat? (or/c false? nat?) integer?
-                                    (c-> void?))])
-
-;; it would use less memory to use stream-play, but
-;; there's an unacceptable 1/2-second lag in starting
-;; a new place.
 
 (define channels 2)
 (define reasonable-latency 0.1)
@@ -32,7 +18,6 @@
   (define total-frames (/ (s16vector-length s16vec) channels))
   (define stop-frame (or pre-stop-frame
                          total-frames))
-  (check-args s16vec total-frames start-frame stop-frame)
   (define sound-frames (- stop-frame start-frame))
   (pa-maybe-initialize)
   (define copying-info (make-copying-info s16vec start-frame stop-frame))
@@ -47,19 +32,14 @@
      device-latency ;; latency
      #f))            ;; host-specific info
   (define stream
-    (with-handlers ([(lambda (exn)
-                       (string=? (exn-message exn)
-                                 "pa-open-stream: invalid device"))
-                     (lambda (exn)
-                       (error "open-stream failed with error message: ~s. See documentation for possible fixes."))])
-      (pa-open-stream
-       #f            ;; input parameters
-       output-stream-parameters
-       sr/i
-       0             ;; frames-per-buffer
-       '()           ;; stream-flags
-       copying-callback
-       copying-info)))
+    (pa-open-stream
+     #f            ;; input parameters
+     output-stream-parameters
+     sr/i
+     0             ;; frames-per-buffer
+     '()           ;; stream-flags
+     copying-callback
+     copying-info))
   (pa-set-stream-finished-callback
    stream
    copying-info-free)
@@ -95,83 +75,19 @@
                      (loop))]))))
   stopper)
 
-(define (check-args vec total-frames start-frame stop-frame)
-  (unless (integer? total-frames)
-    (raise-type-error 's16vec-play "vector of length divisible by 2" 0 vec start-frame stop-frame))
-  (when (<= total-frames start-frame)
-    (raise-type-error 's16vec-play "start frame < total number of frames" 1 vec start-frame stop-frame))
-  (when (< total-frames stop-frame)
-    (raise-type-error 's16vec-play "end frame < total number of frames" 2 vec start-frame stop-frame))
-  (when (< stop-frame start-frame)
-    (raise-type-error 's16vec-play "start frame <= end frame" 1 vec start-frame stop-frame)))
+(let ()
+  (define v (make-s16vector (* channels 44100)))
+  (for ([i (in-range 10000)])
+    (define sample (inexact->exact (round (* 32767 (* 0.2 (sin (* (/ 1 44100) pi 2 i 302)))))))
+    (s16vector-set! v (* i channels) sample)
+    (s16vector-set! v (add1 (* i channels)) sample))
+  (for ([i (in-range 10000 44100)])
+    (define sample (inexact->exact (round (* 32767 (* 0.2 (sin (* (/ 1 44100) pi 2 i 500)))))))
+    (s16vector-set! v (* i channels) sample)
+    (s16vector-set! v (add1 (* i channels)) sample))
 
-(run-tests
- (test-suite "s16vec-play"
-             (let ()
-
-               (define v (make-s16vector (* channels 22055)))
-               (for ([i (in-range 10000)])
-                 (define sample (inexact->exact (round (* 32767 (* 0.2 (sin (* (/ 1 44100) pi 2 i 302)))))))
-                 (s16vector-set! v (* i channels) sample)
-                 (s16vector-set! v (add1 (* i channels)) sample))
-               (for ([i (in-range 10000 22055)])
-                 (define sample (inexact->exact (round (* 32767 (* 0.2 (sin (* (/ 1 44100) pi 2 i 500)))))))
-                 (s16vector-set! v (* i channels) sample)
-                 (s16vector-set! v (add1 (* i channels)) sample))
-
-               ;; using the stopper while the sound is playing, no error on the cleanup thread please...
-               (printf "using the stopper while the sound is playing, no error on the cleanup thread please...\n")
-               (printf "start...\n")
-               (define stopper (s16vec-play v 0 #f 44100))
-               (stopper)
-               (sleep 3)
-               (printf "...stop.\n")
-
-               (printf "1/2-second tone at 302/500 Hz\n")
-               (sleep 2)
-               (printf "start...\n")
-               (s16vec-play v 0 #f 44100)
-               (check-not-exn (lambda () (s16vec-play v 0 #f 44100)))
-               (sleep 0.5)
-               (printf "...stop.\n")
-               (sleep 1)
-               (printf "1/2-second tone at 302/500 Hz using explicit boundaries\n")
-               (sleep 2)
-               (printf "start...\n")
-               (check-not-exn (lambda () (s16vec-play v 0 22055 44100)))
-               (sleep 0.5)
-               (printf "...stop.\n")
-               (sleep 1)
-               (printf "1/4-second tone at 302/500 Hz using offsets\n")
-               (sleep 2)
-               (printf "start...\n")
-               (check-not-exn (lambda () (s16vec-play v 7500 20000 44100)))
-               (sleep 0.5)
-               (printf "...stop.\n")
-               (sleep 1)
-               (check-exn exn:fail?
-                          (lambda ()
-                            (s16vec-play v -3 20000 44100)))
-               (check-exn exn:fail?
-                          (lambda ()
-                            (s16vec-play v 0 40000 44100)))
-               (check-exn exn:fail?
-                          (lambda ()
-                            (s16vec-play v 10000 0 44100)))
-               ;; simultaneous play:
-               (printf "check whether closes are happening:\n")
-               (for ([i (in-range 100)])
-                 (check-not-exn (lambda () (s16vec-play v 0 4410 44100)))
-                 (sleep 0.1))
-
-               (printf "10 near-simultaneous copies of the sound")
-               (sleep 2)
-               (printf "start...\n")
-               (for ([i (in-range 10)])
-                 (check-not-exn (lambda () (s16vec-play v 0 #f 44100)))
-                 (sleep 0.03))
-               (sleep 0.5)
-               (printf "...stop.\n")
-
-
-               )))
+  (printf "1/2-second tone at 302/500 Hz\n")
+  (sleep 2)
+  (s16vec-play v 0 #f 44100)
+  (sleep 1)
+  (printf "...stop.\n"))
