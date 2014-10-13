@@ -40,7 +40,7 @@
   [bytes-play! (-> stream? bytes? void?)]
   [close-bytes-player! (-> stream? void?)]))
 
-(module+ main
+(module+ test
   (require racket/math
            racket/flonum)
   (define v (make-buffer))
