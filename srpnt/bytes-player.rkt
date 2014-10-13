@@ -52,14 +52,15 @@
       (define sample
         (fxmax
          0
-         (fl->fx
-          (flround
-           (fl* 128.0
-                (fl* 0.2
-                     (flsin (fl* (fl/ (fl* pi 2.0)
-                                      sample-rate.0)
-                                 (fl* (fx->fl i)
-                                      440.0)))))))))
+         (fx+ 128
+              (fl->fx
+               (flround
+                (fl* 127.0
+                     (fl* 0.2
+                          (flsin (fl* (fl/ (fl* pi 2.0)
+                                           sample-rate.0)
+                                      (fl* (fx->fl i)
+                                           440.0))))))))))
       (bytes-set! v (fx+ 0 (fx* j channels)) sample)
       (bytes-set! v (fx+ 1 (fx* j channels)) sample))
     (bytes-play! bp v))
