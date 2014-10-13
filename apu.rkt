@@ -1,5 +1,7 @@
 #lang racket/base
-(require racket/flonum
+(require srpnt/bytes-player
+         racket/match
+         racket/flonum
          racket/fixnum)
 (module+ test
   (require racket/file))
@@ -119,14 +121,60 @@
         (error 'check-range "Found a problem with bit-depth ~v" M)))
     (eprintf "No problem with bit-depth ~v: ~v\n" BW (expt 2 BW)))
   (check-range 7)
-  (check-range 8)
-  (check-range 16)
-  (check-range 24)
-  (check-range 32))
+  #;(check-range 8)
+  #;(check-range 16)
+  #;(check-range 24)
+  #;(check-range 32))
 
 (define (mix p1 p2 t n d)
   (define p_o (p-mix p1 p2))
   (define tnd_o (tnd-mix t n d))
   (fl+ p_o tnd_o))
 
+(define (pulse duty volume timer)
+  (match duty
+    [0 0100 0000]
+    [1 0110 0000]
+    [2 0111 1000]
+    [3 1001 1111])
+  #f)
 
+(module+ main
+  (require racket/math
+           racket/flonum)
+  (define v (make-buffer channels))
+  (define bp (make-bytes-player))
+  (printf "1-second tone at 440 Hz\n")
+  
+  ;; 440 hz
+  ;; 440 cycles per second
+  ;; (1 sec)/(440 cyc)
+  ;; (1 sec)/(440 cyc) * (60 (1/60sec) / 1 sec)
+  ;; (1 sec)/(440 cyc) * (60 (1/60sec) / 1 sec) * ( 735 frames / 1 (1/60sec))
+  ;; then divide by 8 for duty-cycle
+  ;; 1/440 * 60 * 735
+  
+  
+  (define START (fl/ 44100.0 261.3570093457944))
+  (define CURRENT START)
+  (for ([s (in-range 60)])
+    (bytes-fill! v 128)
+    (for ([i (in-range (quotient frames-per-buffer 8))])
+      (set! CURRENT (fl+ CURRENT 8.0))
+      (when (fl> CURRENT START)
+        (printf "PRE: ~v\n" CURRENT)
+        (set! CURRENT (fl- CURRENT START))
+        (printf "POST: ~v\n" CURRENT))
+      (when (fl<= CURRENT 8.0)
+        (define sample (+ 128 32))
+        (define (write! off)
+          (define j (fx+ (fx* 8 i) off))
+          (bytes-set! v (fx+ 0 (fx* j channels)) sample)
+          (bytes-set! v (fx+ 1 (fx* j channels)) sample))
+        (write! 1)
+        (write! 2)
+        (write! 3)
+        (write! 4)))
+    (bytes-play! bp v))
+  (close-bytes-player! bp)
+  (printf "...stop.\n"))

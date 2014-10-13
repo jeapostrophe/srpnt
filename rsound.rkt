@@ -57,6 +57,8 @@
             [out = lfo])))
 (module+ main
   (define C4 40)
+  'PULSE
+  (nes-pulse->freq (freq->nes-pulse (piano->freq 40)))
   (define E4 44)
   (define G4 47)
   (define B4 51)
@@ -66,4 +68,5 @@
            (nes-tone E4)
            (nes-tone G4)
            (nes-tone B4))))
-  (rs-write r "t.wav"))
+  (when #f
+    (rs-write r "t.wav")))

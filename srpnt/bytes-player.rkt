@@ -11,7 +11,7 @@
 (define samples-per-buffer (fxquotient sample-rate 60))
 (define frames-per-buffer (fx* channels samples-per-buffer))
 
-(define (make-buffer)
+(define (make-buffer channels)
   (make-bytes (* channels frames-per-buffer)))
 (define (make-bytes-player)
   (pa-maybe-initialize)
@@ -35,7 +35,10 @@
 
 (provide
  (contract-out
-  [make-buffer (-> bytes?)]
+  [channels fixnum?]
+  [frames-per-buffer fixnum?]
+  [sample-rate.0 flonum?]
+  [make-buffer (-> byte? bytes?)]
   [make-bytes-player (-> stream?)]
   [bytes-play! (-> stream? bytes? void?)]
   [close-bytes-player! (-> stream? void?)]))
@@ -43,7 +46,7 @@
 (module+ test
   (require racket/math
            racket/flonum)
-  (define v (make-buffer))
+  (define v (make-buffer channels))
   (define bp (make-bytes-player))
   (printf "1-second tone at 440 Hz\n")
   (for ([s (in-range 60)])
