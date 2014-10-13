@@ -144,8 +144,8 @@
            racket/flonum)
   (define v (make-buffer channels))
   (define bp (make-bytes-player))
-  (printf "1-second tone at 440 Hz\n")
-  
+  (printf "1-second tone at 260 Hz\n")
+
   ;; 440 hz
   ;; 440 cycles per second
   ;; (1 sec)/(440 cyc)
@@ -153,28 +153,44 @@
   ;; (1 sec)/(440 cyc) * (60 (1/60sec) / 1 sec) * ( 735 frames / 1 (1/60sec))
   ;; then divide by 8 for duty-cycle
   ;; 1/440 * 60 * 735
-  
-  
-  (define START (fl/ 44100.0 261.3570093457944))
-  (define CURRENT START)
+
+  (define pitch 261.3570093457944)
+  (define duty-cycle 0.5)
+  (define volume (+ 128 32))
+  (define (angle-add/unit a b)
+    (define sum (fl+ a b))
+    (cond [(fl<= 1.0 sum) (fl- sum 1.0)]
+          [else sum]))
+  (define (pulse-wave-thresh angle duty-cycle)
+    (cond [(fl< angle duty-cycle) volume] [else 0]))
+
+  (define angle 0.0)
   (for ([s (in-range 60)])
     (bytes-fill! v 128)
-    (for ([i (in-range (quotient frames-per-buffer 8))])
-      (set! CURRENT (fl+ CURRENT 8.0))
-      (when (fl> CURRENT START)
-        (printf "PRE: ~v\n" CURRENT)
-        (set! CURRENT (fl- CURRENT START))
-        (printf "POST: ~v\n" CURRENT))
-      (when (fl<= CURRENT 8.0)
-        (define sample (+ 128 32))
-        (define (write! off)
-          (define j (fx+ (fx* 8 i) off))
-          (bytes-set! v (fx+ 0 (fx* j channels)) sample)
-          (bytes-set! v (fx+ 1 (fx* j channels)) sample))
-        (write! 1)
-        (write! 2)
-        (write! 3)
-        (write! 4)))
+    (for ([i (in-range frames-per-buffer)])
+      (define added (angle-add/unit angle (fl* pitch (fl/ 1.0 sample-rate.0))))
+      (define out (pulse-wave-thresh angle duty-cycle))
+      (set! angle added)
+      (bytes-set! v (fx+ 0 (fx* i channels)) out)
+      (bytes-set! v (fx+ 1 (fx* i channels)) out)
+
+      #;
+      (when #f
+        (set! CURRENT (fl+ CURRENT 8.0))
+        (when (fl> CURRENT START)
+          (printf "PRE: ~v\n" CURRENT)
+          (set! CURRENT (fl- CURRENT START))
+          (printf "POST: ~v\n" CURRENT))
+        (when (fl<= CURRENT 8.0)
+          (define sample (+ 128 32))
+          (define (write! off)
+            (define j (fx+ (fx* 8 i) off))
+            (bytes-set! v (fx+ 0 (fx* j channels)) sample)
+            (bytes-set! v (fx+ 1 (fx* j channels)) sample))
+          (write! 1)
+          (write! 2)
+          (write! 3)
+          (write! 4))))
     (bytes-play! bp v))
   (close-bytes-player! bp)
   (printf "...stop.\n"))
