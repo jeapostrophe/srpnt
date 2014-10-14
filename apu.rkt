@@ -49,7 +49,7 @@
   (for* ([p1 (in-range 16)]
          [p2 (in-range 16)])
     (bytes-set! v (p-mix-off p1 p2)
-                (fl->fx (flround (fl* 255.0 (p-mix p1 p2))))))
+                (fl->fx (flround (fl* 127.0 (p-mix p1 p2))))))
   v)
 
 (module+ test
@@ -58,6 +58,9 @@
   (define pm-bytes
     (time (make-p-mix-bytes)))
   (display-to-file pm-bytes "pm.bin" #:exists 'replace))
+
+(define pmix-bs
+  (make-p-mix-bytes))
 
 (define (tnd-mix t n d)
   (fl/ 159.79
@@ -89,8 +92,11 @@
          [d (in-range 128)])
     (bytes-set! v
                 (tnd-mix-off t n d)
-                (fl->fx (flround (fl* 255.0 (tnd-mix t n d))))))
+                (fl->fx (flround (fl* 127.0 (tnd-mix t n d))))))
   v)
+
+(define tndmix-bs
+  (make-tnd-mix-bytes))
 
 (module+ test
   (define tnd-flvec
@@ -131,66 +137,80 @@
   (define tnd_o (tnd-mix t n d))
   (fl+ p_o tnd_o))
 
-(define (pulse duty volume timer)
-  (match duty
-    [0 0100 0000]
-    [1 0110 0000]
-    [2 0111 1000]
-    [3 1001 1111])
-  #f)
+;; http://opengameart.org/forumtopic/kickin-it-old-school-setting-up-nes-style-chiptunes
+
+;; Look at: http://www.mattmontag.com/projects-page/nintendo-vst
+(define inv-sample-rate.0
+  (fl/ 1.0 sample-rate.0))
+
+(define (angle-add/unit a b)
+  (define sum (fl+ a b))
+  (cond [(fl<= 1.0 sum)
+         (fl- sum 1.0)]
+        [else
+         sum]))
+
+(define (pulse-wave duty-cycle pitch volume angle)
+  (define next-angle (angle-add/unit angle (fl* pitch inv-sample-rate.0)))
+  (define out
+    (if (fl< angle duty-cycle)
+        volume
+        0))
+  (values out next-angle))
+
+(define TRIANGLE-PATTERN
+  (bytes 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+         0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15))
+(define (triangle-wave on? pitch step angle)
+  (define next-angle (angle-add/unit angle (fl* pitch inv-sample-rate.0)))
+  (define out
+    (if (and on? (fl< angle 0.5))
+        (bytes-ref TRIANGLE-PATTERN step)
+        0))
+  (values out (fxmodulo (fx+ 1 step) 32) next-angle))
 
 (module+ main
   (require racket/math
            racket/flonum)
   (define v (make-buffer channels))
   (define bp (make-bytes-player))
-  (printf "1-second tone at 260 Hz\n")
 
-  ;; 440 hz
-  ;; 440 cycles per second
-  ;; (1 sec)/(440 cyc)
-  ;; (1 sec)/(440 cyc) * (60 (1/60sec) / 1 sec)
-  ;; (1 sec)/(440 cyc) * (60 (1/60sec) / 1 sec) * ( 735 frames / 1 (1/60sec))
-  ;; then divide by 8 for duty-cycle
-  ;; 1/440 * 60 * 735
-
-  (define pitch 261.3570093457944)
-  (define duty-cycle 0.5)
-  (define volume (+ 128 32))
-  (define (angle-add/unit a b)
-    (define sum (fl+ a b))
-    (cond [(fl<= 1.0 sum) (fl- sum 1.0)]
-          [else sum]))
-  (define (pulse-wave-thresh angle duty-cycle)
-    (cond [(fl< angle duty-cycle) volume] [else 0]))
-
-  (define angle 0.0)
+  (printf "starting...\n")
+  (define p1-angle 0.0)
+  (define p2-angle 0.0)
+  (define t-step 0)
+  (define t-angle 0.0)
   (for ([s (in-range 60)])
     (bytes-fill! v 128)
     (for ([i (in-range frames-per-buffer)])
-      (define added (angle-add/unit angle (fl* pitch (fl/ 1.0 sample-rate.0))))
-      (define out (pulse-wave-thresh angle duty-cycle))
-      (set! angle added)
-      (bytes-set! v (fx+ 0 (fx* i channels)) out)
-      (bytes-set! v (fx+ 1 (fx* i channels)) out)
+      (define-values (p1 new-p1-angle)
+        (pulse-wave 0.5 261.626 (if (= (modulo s 4) 0) 15 0) p1-angle))
+      (define-values (p2 new-p2-angle)
+        (pulse-wave 0.125 440.000 (if (= (modulo s 4) 1) 15 0) p2-angle))
+      (define-values (t new-t-step new-t-angle)
+        (triangle-wave (= (modulo s 4) 2) 174.614 t-step t-angle))
+      (define n
+        ;; xxx looped noise?
+        (if (= (modulo s 4) 3)
+            (random 16)
+            0))
+      ;; XXX work on reading the samples
+      
+      (define p-mixed
+        (bytes-ref pmix-bs (p-mix-off p1 p2)))
+      (define tnd-mixed
+        (bytes-ref tndmix-bs (tnd-mix-off t n 0)))
+      (define mixed
+        (fx+ p-mixed tnd-mixed))
+      (define out
+        (+ 128 mixed))
 
-      #;
-      (when #f
-        (set! CURRENT (fl+ CURRENT 8.0))
-        (when (fl> CURRENT START)
-          (printf "PRE: ~v\n" CURRENT)
-          (set! CURRENT (fl- CURRENT START))
-          (printf "POST: ~v\n" CURRENT))
-        (when (fl<= CURRENT 8.0)
-          (define sample (+ 128 32))
-          (define (write! off)
-            (define j (fx+ (fx* 8 i) off))
-            (bytes-set! v (fx+ 0 (fx* j channels)) sample)
-            (bytes-set! v (fx+ 1 (fx* j channels)) sample))
-          (write! 1)
-          (write! 2)
-          (write! 3)
-          (write! 4))))
+      (set! p1-angle new-p1-angle)
+      (set! p2-angle new-p2-angle)
+      (set! t-step new-t-step)
+      (set! t-angle new-t-angle)
+      (bytes-set! v (fx+ 0 (fx* i channels)) out)
+      (bytes-set! v (fx+ 1 (fx* i channels)) out))
     (bytes-play! bp v))
   (close-bytes-player! bp)
   (printf "...stop.\n"))
