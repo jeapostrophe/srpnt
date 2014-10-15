@@ -37,13 +37,6 @@
 (define (p-mix-off p1 p2)
   (fx+ (fx* 16 p1) p2))
 
-(define (make-p-mix-flvec)
-  (define v (make-flvector (* 16 16)))
-  (for* ([p1 (in-range 16)]
-         [p2 (in-range 16)])
-    (flvector-set! v (p-mix-off p1 p2) (p-mix p1 p2)))
-  v)
-
 (define (make-p-mix-bytes)
   (define v (make-bytes (* 16 16)))
   (for* ([p1 (in-range 16)]
@@ -51,13 +44,6 @@
     (bytes-set! v (p-mix-off p1 p2)
                 (fl->fx (flround (fl* 127.0 (p-mix p1 p2))))))
   v)
-
-(module+ test
-  (define pm-flvec
-    (time (make-p-mix-flvec)))
-  (define pm-bytes
-    (time (make-p-mix-bytes)))
-  (display-to-file pm-bytes "pm.bin" #:exists 'replace))
 
 (define pmix-bs
   (make-p-mix-bytes))
@@ -75,16 +61,6 @@
 (define (tnd-mix-off t n d)
   (fx+ (tn-mix-off t n) d))
 
-(define (make-tnd-mix-flvec)
-  (define v (make-flvector (* 16 16 128)))
-  (for* ([t (in-range 16)]
-         [n (in-range 16)]
-         [d (in-range 128)])
-    (flvector-set! v
-                   (tnd-mix-off t n d)
-                   (tnd-mix t n d)))
-  v)
-
 (define (make-tnd-mix-bytes)
   (define v (make-bytes (* 16 16 128)))
   (for* ([t (in-range 16)]
@@ -97,41 +73,6 @@
 
 (define tndmix-bs
   (make-tnd-mix-bytes))
-
-(module+ test
-  (define tnd-flvec
-    (time (make-tnd-mix-flvec)))
-  (define tnd-bytes
-    (time (make-tnd-mix-bytes)))
-  (display-to-file tnd-bytes "tnd.bin" #:exists 'replace))
-
-(module+ test
-  (define (check-range BW)
-    (define M (fx->fl (expt 2 BW)))
-    (for* ([p1 (in-range 16)]
-           [p2 (in-range 16)]
-           [t (in-range 16)]
-           [n (in-range 16)]
-           [d (in-range 128)])
-      (define pm (fl* M (flvector-ref pm-flvec (p-mix-off p1 p2))))
-      (define pm_a (fl->fx (flround pm)))
-      (define tm (fl* M (flvector-ref tnd-flvec (tnd-mix-off t n d))))
-      (define tm_a (fl->fx (flround tm)))
-      (define fl (fl+ pm tm))
-      (define fx (fx+ pm_a tm_a))
-      (define err (flabs (fl- fl (fx->fl fx))))
-      (when (> err 1.0)
-        (eprintf "~v x ~v -> ~v [~v]\n" p1 p2 pm pm_a)
-        (eprintf "~v x ~v x ~v -> ~v [~v]\n" t n d tm tm_a)
-        (eprintf "~v x ~v -> ~v [~v] -> ~v\n" pm tm fl fx err)
-        (error 'check-range "Found a problem with bit-depth ~v" M)))
-    (eprintf "No problem with bit-depth ~v: ~v\n" BW (expt 2 BW)))
-  (check-range 7))
-
-(define (mix p1 p2 t n d)
-  (define p_o (p-mix p1 p2))
-  (define tnd_o (tnd-mix t n d))
-  (fl+ p_o tnd_o))
 
 ;; http://opengameart.org/forumtopic/kickin-it-old-school-setting-up-nes-style-chiptunes
 
@@ -155,6 +96,7 @@
 
 (define CPU-FREQ-Hz (fl* 1.789773 (fl* 1000.0 1000.0)))
 
+;; period is unsigned 11-bits
 (define (pulse-period->pitch period)
   (fl/ CPU-FREQ-Hz (fl* 16.0 (fl+ 1.0 (fx->fl period)))))
 (define (pulse-pitch->period pitch)
@@ -174,18 +116,24 @@
 (define TRIANGLE-PATTERN
   (bytes 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
          0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15))
+;; period is unsigned 11-bits
 (define (triangle-period->pitch period)
   (fl/ CPU-FREQ-Hz (fl* 32.0 (fl+ 1.0 (fx->fl period)))))
 (define (triangle-pitch->period pitch)
   (fl->fx (flround (fl- (fl/ CPU-FREQ-Hz (fl* 32.0 pitch)) 1.0))))
-(define (triangle-wave on? period step angle)
+;; xxx I think this is wrong
+(define (triangle-wave on? period angle)
   (define pitch (triangle-period->pitch period))
   (define next-angle (angle-add/unit angle (fl* pitch inv-sample-rate.0)))
+  (define angle-as-step (fl->fx (flround (fl* angle 31.0))))
   (define out
-    (if (and on? (fl< angle 0.5))
-        (bytes-ref TRIANGLE-PATTERN step)
+    (if on?
+        (bytes-ref TRIANGLE-PATTERN angle-as-step)
         0))
-  (values out (fxmodulo (fx+ 1 step) 32) next-angle))
+  (values out next-angle))
+
+(define (noise mode period register angle)
+  #f)
 
 (define (read-sample/port base mult p)
   (define-values (7bit-out 7bit-in) (make-pipe))
@@ -225,56 +173,89 @@
 (module+ main
   (require racket/math
            racket/flonum)
-  (define v (make-buffer channels))
-  (define bp (make-bytes-player))
-  (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
-  (display-sample-rle sample-bs)
 
+  (define bp
+    (make-bytes-player))
+  (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
+
+  (define (plot-bytes bs)
+    (local-require plot)
+    (display-sample-rle bs)
+    (plot-new-window? #t)
+    (plot (lines
+           (for/list ([i (in-range #;frames-per-buffer
+                          (sub1 (quotient (bytes-length bs) 2)))])
+             (vector i
+                     (fx- (bytes-ref bs (fx* i channels))
+                          128))))
+          #:y-min 0
+          #:y-label "amp"
+          #:x-label "time"))
+
+  (define p1-period
+    (pulse-pitch->period 261.626))
+  (printf "P1: ~a\n" p1-period)
+  (define p2-period
+    (pulse-pitch->period 440.00))
+  (printf "P2: ~a\n" p2-period)
+  (define t-period
+    (or 700
+        (triangle-pitch->period 174.614)))
+  (printf "T: ~a\n" t-period)
+
+  ;; xxx make live graphing
+  
   (printf "starting...\n")
   (define p1-angle 0.0)
   (define p2-angle 0.0)
-  (define t-step 0)
   (define t-angle 0.0)
-  (for ([s (in-range 60)])
-    (bytes-fill! v 128)
-    (for ([i (in-range frames-per-buffer)])
-      (define-values (p1 new-p1-angle)
-        (pulse-wave 2 (pulse-pitch->period 261.626)
-                    (if (fx= (fxmodulo s 4) 0) 7 0) p1-angle))
-      (define-values (p2 new-p2-angle)
-        (pulse-wave 0 (pulse-pitch->period 440.000)
-                    (if (fx= (fxmodulo s 4) 1) 7 0) p2-angle))
-      (define-values (t new-t-step new-t-angle)
-        (triangle-wave (fx= (fxmodulo s 4) 2) (triangle-pitch->period 174.614)
-                       t-step t-angle))
-      ;; xxx 16 preset pitches
-      ;; xxx 2 modes? (looped noise)
-      (define n
-        ;; xxx different prng?
-        (if (fx= (fxmodulo s 4) 3)
-            (random 16)
-            0))
-      (define d-offset (fx+ (fx* s frames-per-buffer) i))
-      (define d
-        (if (fx< d-offset (bytes-length sample-bs))
-            (bytes-ref sample-bs d-offset)
-            0))
+  (define vs
+    (for/list ([s (in-range 60)])
+      (define v (make-buffer channels))
+      (bytes-fill! v 128)
+      (for ([i (in-range frames-per-buffer)])
+        (define-values (p1 new-p1-angle)
+          (pulse-wave 2 p1-period
+                      (if (fx= (fxmodulo s 4) 0) 7 0) p1-angle))
+        (define-values (p2 new-p2-angle)
+          (pulse-wave 0 p2-period
+                      (if (fx= (fxmodulo s 4) 1) 7 0) p2-angle))
+        (define-values (t new-t-angle)
+          (triangle-wave (if (fx= (fxmodulo s 4) 2) 7 0)
+                         t-period
+                         t-angle))
+        ;; xxx 16 preset pitches
+        ;; xxx 2 modes? (looped noise)
+        (define n
+          ;; xxx different prng?
+          (if (fx= (fxmodulo s 4) 3)
+              (random 16)
+              0))
+        (define d-offset (fx+ (fx* s frames-per-buffer) i))
+        (define d
+          (if (fx< d-offset (bytes-length sample-bs))
+              (bytes-ref sample-bs d-offset)
+              0))
 
-      (define p-mixed
-        (bytes-ref pmix-bs (p-mix-off p1 p2)))
-      (define tnd-mixed
-        (bytes-ref tndmix-bs (tnd-mix-off t n d)))
-      (define mixed
-        (fx+ p-mixed tnd-mixed))
-      (define out
-        (+ 128 mixed))
+        (define p-mixed
+          (bytes-ref pmix-bs (p-mix-off p1 p2)))
+        (define tnd-mixed
+          (bytes-ref tndmix-bs (tnd-mix-off t n d)))
+        (define mixed
+          (fx+ p-mixed tnd-mixed))
+        (define out
+          (fx+ 128 mixed))
 
-      (set! p1-angle new-p1-angle)
-      (set! p2-angle new-p2-angle)
-      (set! t-step new-t-step)
-      (set! t-angle new-t-angle)
-      (bytes-set! v (fx+ 0 (fx* i channels)) out)
-      (bytes-set! v (fx+ 1 (fx* i channels)) out))
-    (bytes-play! bp v))
-  (close-bytes-player! bp)
-  (printf "...stop.\n"))
+        (set! p1-angle new-p1-angle)
+        (set! p2-angle new-p2-angle)
+        (set! t-angle new-t-angle)
+        (bytes-set! v (fx+ 0 (fx* i channels)) out)
+        (bytes-set! v (fx+ 1 (fx* i channels)) out))
+      (when bp (bytes-play! bp v))
+      v))
+  (when bp (close-bytes-player! bp))
+  (printf "...stop.\n")
+
+  (require racket/bytes)
+  (when #f
+    (plot-bytes (bytes-append* vs))))
