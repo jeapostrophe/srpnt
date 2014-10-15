@@ -184,14 +184,15 @@
     (bytes-fill! v 128)
     (for ([i (in-range frames-per-buffer)])
       (define-values (p1 new-p1-angle)
-        (pulse-wave 0.5 261.626 (if (= (modulo s 4) 0) 15 0) p1-angle))
+        (pulse-wave 0.5 261.626 (if (fx= (fxmodulo s 4) 0) 15 0) p1-angle))
       (define-values (p2 new-p2-angle)
-        (pulse-wave 0.125 440.000 (if (= (modulo s 4) 1) 15 0) p2-angle))
+        (pulse-wave 0.125 440.000 (if (fx= (fxmodulo s 4) 1) 15 0) p2-angle))
       (define-values (t new-t-step new-t-angle)
-        (triangle-wave (= (modulo s 4) 2) 174.614 t-step t-angle))
+        (triangle-wave (fx= (fxmodulo s 4) 2) 174.614 t-step t-angle))
       (define n
         ;; xxx looped noise?
-        (if (= (modulo s 4) 3)
+        ;; xxx different prng?
+        (if (fx= (fxmodulo s 4) 3)
             (random 16)
             0))
       ;; XXX work on reading the samples
