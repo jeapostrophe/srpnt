@@ -125,7 +125,7 @@
 (define (triangle-wave on? period angle)
   (define pitch (triangle-period->pitch period))
   (define next-angle (angle-add/unit angle (fl* pitch inv-sample-rate.0)))
-  (define angle-as-step (fl->fx (flround (fl* angle 31.0))))
+  (define angle-as-step (fl->fx (flfloor (fl* angle 31.0))))
   (define out
     (if on?
         (bytes-ref TRIANGLE-PATTERN angle-as-step)
@@ -199,11 +199,14 @@
     (pulse-pitch->period 440.00))
   (printf "P2: ~a\n" p2-period)
   (define t-period
-    (or 700
+    (or #f
+        (triangle-pitch->period 440.00)
         (triangle-pitch->period 174.614)))
   (printf "T: ~a\n" t-period)
 
   ;; xxx make live graphing
+  
+  ;; http://problemkaputt.de/everynes.htm
   
   (printf "starting...\n")
   (define p1-angle 0.0)
@@ -216,23 +219,25 @@
       (for ([i (in-range frames-per-buffer)])
         (define-values (p1 new-p1-angle)
           (pulse-wave 2 p1-period
-                      (if (fx= (fxmodulo s 4) 0) 7 0) p1-angle))
+                      (if (fx= (fxmodulo s 4) 8) 7 0) p1-angle))
         (define-values (p2 new-p2-angle)
-          (pulse-wave 0 p2-period
-                      (if (fx= (fxmodulo s 4) 1) 7 0) p2-angle))
+          (pulse-wave 2 p2-period
+                      (if (fx< s 30) #;(fx= (fxmodulo s 4) 1) 7 0) p2-angle))
         (define-values (t new-t-angle)
-          (triangle-wave (if (fx= (fxmodulo s 4) 2) 7 0)
+          (triangle-wave (if (fx< 30 s) #;(fx= (fxmodulo s 2) 2) #t 0)
                          t-period
                          t-angle))
         ;; xxx 16 preset pitches
         ;; xxx 2 modes? (looped noise)
         (define n
           ;; xxx different prng?
-          (if (fx= (fxmodulo s 4) 3)
+          (if (fx= (fxmodulo s 4) 8)
               (random 16)
               0))
         (define d-offset (fx+ (fx* s frames-per-buffer) i))
         (define d
+          0
+          #;
           (if (fx< d-offset (bytes-length sample-bs))
               (bytes-ref sample-bs d-offset)
               0))
@@ -242,6 +247,8 @@
         (define tnd-mixed
           (bytes-ref tndmix-bs (tnd-mix-off t n d)))
         (define mixed
+          (fx+ p2 t)
+          #;
           (fx+ p-mixed tnd-mixed))
         (define out
           (fx+ 128 mixed))
