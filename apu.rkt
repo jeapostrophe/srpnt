@@ -126,11 +126,7 @@
         (eprintf "~v x ~v -> ~v [~v] -> ~v\n" pm tm fl fx err)
         (error 'check-range "Found a problem with bit-depth ~v" M)))
     (eprintf "No problem with bit-depth ~v: ~v\n" BW (expt 2 BW)))
-  (check-range 7)
-  #;(check-range 8)
-  #;(check-range 16)
-  #;(check-range 24)
-  #;(check-range 32))
+  (check-range 7))
 
 (define (mix p1 p2 t n d)
   (define p_o (p-mix p1 p2))
@@ -150,7 +146,24 @@
         [else
          sum]))
 
-(define (pulse-wave duty-cycle pitch volume angle)
+(define (duty-n->cycle n)
+  (match n
+    [0 0.125]
+    [1 0.25]
+    [2 0.50]
+    [3 0.75]))
+
+(define CPU-FREQ-Hz (fl* 1.789773 (fl* 1000.0 1000.0)))
+
+(define (pulse-period->pitch period)
+  (fl/ CPU-FREQ-Hz (fl* 16.0 (fl+ 1.0 (fx->fl period)))))
+(define (pulse-pitch->period pitch)
+  (define pre-period (fl/ CPU-FREQ-Hz (fl* 16.0 pitch)))
+  (define r (fl->fx (flround (fl- pre-period 1.0))))
+  r)
+(define (pulse-wave duty-n period volume angle)
+  (define pitch (pulse-period->pitch period))
+  (define duty-cycle (duty-n->cycle duty-n))
   (define next-angle (angle-add/unit angle (fl* pitch inv-sample-rate.0)))
   (define out
     (if (fl< angle duty-cycle)
@@ -161,7 +174,12 @@
 (define TRIANGLE-PATTERN
   (bytes 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
          0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15))
-(define (triangle-wave on? pitch step angle)
+(define (triangle-period->pitch period)
+  (fl/ CPU-FREQ-Hz (fl* 32.0 (fl+ 1.0 (fx->fl period)))))
+(define (triangle-pitch->period pitch)
+  (fl->fx (flround (fl- (fl/ CPU-FREQ-Hz (fl* 32.0 pitch)) 1.0))))
+(define (triangle-wave on? period step angle)
+  (define pitch (triangle-period->pitch period))
   (define next-angle (angle-add/unit angle (fl* pitch inv-sample-rate.0)))
   (define out
     (if (and on? (fl< angle 0.5))
@@ -169,11 +187,48 @@
         0))
   (values out (fxmodulo (fx+ 1 step) 32) next-angle))
 
+(define (read-sample/port base mult p)
+  (define-values (7bit-out 7bit-in) (make-pipe))
+  (local-require racket/port)
+  (let loop ()
+    (match (read-byte p)
+      [(? eof-object?)
+       (void)]
+      [c
+       (define b (fxmin (fxmax 0 (fx+ base (fx* mult (fx- c 128)))) 127))
+       (write-byte b 7bit-in)
+       (loop)]))
+  (close-output-port 7bit-in)
+  (port->bytes 7bit-out))
+(define (read-sample/path base mult p)
+  (read-sample/port base mult (open-input-file p)))
+(define (read-sample/gzip base mult p)
+  (local-require file/gunzip)
+  (define-values (ungzipped gzipped) (make-pipe))
+  (gunzip-through-ports (open-input-file p) gzipped)
+  (close-output-port gzipped)
+  (read-sample/port base mult ungzipped))
+
+(define (display-sample-rle bs)
+  (define-values (last count m M)
+    (for/fold ([last 0] [count 0] [m 127] [M 0])
+              ([b (in-bytes bs)])
+      (cond
+       [(fx= last b)
+        (values last (fx+ count 1) m M)]
+       [else
+        (printf "~a[~a] " last count)
+        (values b 1 (fxmin m b) (fxmax M b))])))
+  (printf "\n~v samples in [~v,~v]\n" (bytes-length bs) m M)
+  (void))
+
 (module+ main
   (require racket/math
            racket/flonum)
   (define v (make-buffer channels))
   (define bp (make-bytes-player))
+  (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
+  (display-sample-rle sample-bs)
 
   (printf "starting...\n")
   (define p1-angle 0.0)
@@ -184,23 +239,31 @@
     (bytes-fill! v 128)
     (for ([i (in-range frames-per-buffer)])
       (define-values (p1 new-p1-angle)
-        (pulse-wave 0.5 261.626 (if (fx= (fxmodulo s 4) 0) 15 0) p1-angle))
+        (pulse-wave 2 (pulse-pitch->period 261.626)
+                    (if (fx= (fxmodulo s 4) 0) 7 0) p1-angle))
       (define-values (p2 new-p2-angle)
-        (pulse-wave 0.125 440.000 (if (fx= (fxmodulo s 4) 1) 15 0) p2-angle))
+        (pulse-wave 0 (pulse-pitch->period 440.000)
+                    (if (fx= (fxmodulo s 4) 1) 7 0) p2-angle))
       (define-values (t new-t-step new-t-angle)
-        (triangle-wave (fx= (fxmodulo s 4) 2) 174.614 t-step t-angle))
+        (triangle-wave (fx= (fxmodulo s 4) 2) (triangle-pitch->period 174.614)
+                       t-step t-angle))
+      ;; xxx 16 preset pitches
+      ;; xxx 2 modes? (looped noise)
       (define n
-        ;; xxx looped noise?
         ;; xxx different prng?
         (if (fx= (fxmodulo s 4) 3)
             (random 16)
             0))
-      ;; XXX work on reading the samples
-      
+      (define d-offset (fx+ (fx* s frames-per-buffer) i))
+      (define d
+        (if (fx< d-offset (bytes-length sample-bs))
+            (bytes-ref sample-bs d-offset)
+            0))
+
       (define p-mixed
         (bytes-ref pmix-bs (p-mix-off p1 p2)))
       (define tnd-mixed
-        (bytes-ref tndmix-bs (tnd-mix-off t n 0)))
+        (bytes-ref tndmix-bs (tnd-mix-off t n d)))
       (define mixed
         (fx+ p-mixed tnd-mixed))
       (define out

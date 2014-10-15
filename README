@@ -1,1 +1,11 @@
 srpnt - synthesized, random pulse, noise, and triangle (wip)
+
+--
+
+Samples are expected to be 1-channel, unsigned 8-byte PCM data. You
+can create that format from an arbitrary input with ffmpeg:
+
+ffmpeg -i INPUT -map_channel 0.0.0 -f u8 OUTPUT.raw
+ffmpeg -i INPUT -map_channel 0.0.1 -f u8 OUTPUT.raw
+OR
+ffmpeg -i INPUT -ac 1 -f u8 OUTPUT.raw
