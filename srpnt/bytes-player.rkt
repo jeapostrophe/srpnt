@@ -2,17 +2,18 @@
 (require portaudio/portaudio
          portaudio/devices
          racket/fixnum
+         racket/flonum
          racket/contract/base)
 
 (define channels 2)
-(define reasonable-latency 0.1)
+(define reasonable-latency 0.1 #;(fl/ 1.0 60.0))
 (define sample-rate 44100)
 (define sample-rate.0 (fx->fl sample-rate))
 (define samples-per-buffer (fxquotient sample-rate 60))
 (define frames-per-buffer (fx* channels samples-per-buffer))
 
 (define (make-buffer channels)
-  (make-bytes (* channels frames-per-buffer)))
+  (make-bytes (fx* channels samples-per-buffer)))
 (define (make-bytes-player)
   (pa-maybe-initialize)
   (define device-number (find-output-device reasonable-latency))
@@ -29,13 +30,16 @@
   (pa-start-stream stream)
   stream)
 (define (bytes-play! bp bs)
-  (pa-write-stream bp bs frames-per-buffer))
+  (with-handlers ([exn:fail?
+                   (λ (x) (eprintf "~a\n" (exn-message x)))])
+    (pa-write-stream bp bs frames-per-buffer)))
 (define (close-bytes-player! bp)
   (pa-close-stream bp))
 
 (provide
  (contract-out
   [channels fixnum?]
+  [samples-per-buffer fixnum?]
   [frames-per-buffer fixnum?]
   [sample-rate.0 flonum?]
   [make-buffer (-> byte? bytes?)]
