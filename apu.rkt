@@ -160,19 +160,6 @@
   (close-output-port gzipped)
   (read-sample/port base mult ungzipped))
 
-(define (display-sample-rle bs)
-  (define-values (last count m M)
-    (for/fold ([last 0] [count 0] [m 127] [M 0])
-              ([b (in-bytes bs)])
-      (cond
-       [(fx= last b)
-        (values last (fx+ count 1) m M)]
-       [else
-        (printf "~a[~a] " last count)
-        (values b 1 (fxmin m b) (fxmax M b))])))
-  (printf "\n~v samples in [~v,~v]\n" (bytes-length bs) m M)
-  (void))
-
 (module+ main
   (require racket/math
            racket/gui/base
@@ -186,24 +173,28 @@
   (define STEREO-COMBINED-bs (make-buffer channels))
 
   (define OSC-W samples-per-buffer)
-  (define OSC-Hshort 15)
+  (define OSC-Hshort (fx* 2 16))
   (define OSC-Htall 128)
-  (define OSC-MARGIN 5)
+  (define OSC-MARGIN 8)
   (define OSCSshort (+ 1 1 1 1))
   (define OSCStall (+ 1 1 1 1))
 
-  (define W (+ OSC-MARGIN OSC-W OSC-MARGIN))
-  (define H (+ OSC-MARGIN
-               (* (+ OSC-Hshort OSC-MARGIN) OSCSshort)
-               (* (+ OSC-Htall OSC-MARGIN) OSCStall)
-               OSC-MARGIN))
+  (define W
+    (+ OSC-MARGIN OSC-W OSC-MARGIN))
+  (define H
+    (+ OSC-MARGIN
+       (* (+ OSC-Hshort OSC-MARGIN) OSCSshort)
+       (* (+ OSC-Htall OSC-MARGIN) OSCStall)
+       OSC-MARGIN))
   (define (paint! c dc)
     (send dc set-background "black")
-    (send dc clear)
+    (send dc set-text-foreground "yellow")
     (send dc set-pen "yellow" 1 'solid)
+    (send dc clear)
 
     (begin-encourage-inline
      (define (draw-osc! label start-y bs channels off start-x)
+       (send dc draw-text label OSC-MARGIN start-y)
        (for/fold ([last-x -1] [last-y 0])
                  ([i (in-range samples-per-buffer)])
          (define this-x i)
@@ -231,8 +222,10 @@
     (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Htall)))
     (draw-osc! "Combined-R" start-y STEREO-COMBINED-bs channels 1 128)
     (void))
-  (define f (new frame% [label "SRPNT"] [width W] [height H]))
-  (define c (new canvas% [parent f] [paint-callback paint!]))
+  (define f (new frame% [label "SRPNT"] [width W] [height H]
+                 [min-width W] [min-height H]))
+  (define c (new canvas% [parent f] [paint-callback paint!]
+                 [min-width W] [min-height H]))
 
   (when #f
     (thread
@@ -270,7 +263,7 @@
     (for ([i (in-range samples-per-buffer)])
       (define-values (p1 new-p1-angle)
         (pulse-wave 2 p1-period
-                    (if (fx= (fxmodulo s 4) 8) 7 0) p1-angle))
+                    (if (fx= (fxmodulo s 4) 1) 7 0) p1-angle))
       (define-values (p2 new-p2-angle)
         (pulse-wave 2 p2-period
                     (if (fx< s 30) #;(fx= (fxmodulo s 4) 1) 7 0) p2-angle))
@@ -313,6 +306,6 @@
       (bytes-set! STEREO-COMBINED-bs (fx+ 0 (fx* i channels)) out)
       (bytes-set! STEREO-COMBINED-bs (fx+ 1 (fx* i channels)) out))
     (bytes-play! bp STEREO-COMBINED-bs)
-    (loop (fx+ 1 s)))
+    (loop (fxmodulo (fx+ 1 s) 60)))
   (close-bytes-player! bp)
   (printf "...stop.\n"))

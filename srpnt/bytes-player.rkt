@@ -6,7 +6,7 @@
          racket/contract/base)
 
 (define channels 2)
-(define reasonable-latency 0.1 #;(fl/ 1.0 60.0))
+(define reasonable-latency (fl/ 1.0 60.0))
 (define sample-rate 44100)
 (define sample-rate.0 (fx->fl sample-rate))
 (define samples-per-buffer (fxquotient sample-rate 60))
