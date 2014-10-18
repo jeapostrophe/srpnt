@@ -96,13 +96,15 @@
 
 (define CPU-FREQ-Hz (fl* 1.789773 (fl* 1000.0 1000.0)))
 
-;; period is unsigned 11-bits
+(define max-pulse-period (fx- (expt 2 11) 1))
 (define (pulse-period->pitch period)
   (fl/ CPU-FREQ-Hz (fl* 16.0 (fl+ 1.0 (fx->fl period)))))
 (define (pulse-pitch->period pitch)
   (define pre-period (fl/ CPU-FREQ-Hz (fl* 16.0 pitch)))
   (define r (fl->fx (flround (fl- pre-period 1.0))))
-  r)
+  (if (and (fx<= 0 r) (fx<= r max-pulse-period))
+      r
+      #f))
 (define (pulse-wave duty-n period volume angle)
   (define pitch (pulse-period->pitch period))
   (define duty-cycle (duty-n->cycle duty-n))
@@ -116,11 +118,14 @@
 (define TRIANGLE-PATTERN
   (bytes 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
          0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15))
-;; period is unsigned 11-bits
+(define max-triangle-period (fx- (expt 2 11) 1))
 (define (triangle-period->pitch period)
   (fl/ CPU-FREQ-Hz (fl* 32.0 (fl+ 1.0 (fx->fl period)))))
 (define (triangle-pitch->period pitch)
-  (fl->fx (flround (fl- (fl/ CPU-FREQ-Hz (fl* 32.0 pitch)) 1.0))))
+  (define r (fl->fx (flround (fl- (fl/ CPU-FREQ-Hz (fl* 32.0 pitch)) 1.0))))
+  (if (and (fx<= 0 r) (fx<= r max-pulse-period))
+      r
+      #f))
 ;; xxx I think this is wrong
 (define (triangle-wave on? period angle)
   (define pitch (triangle-period->pitch period))

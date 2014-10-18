@@ -120,33 +120,88 @@
   (require racket/math
            racket/cmdline)
 
+  (define-values (PULSE TRIANGLE)
+    (let ()
+      (local-require racket/file
+                     racket/string)
+      (define PULSE (make-hasheq))
+      (define TRIANGLE (make-hasheq))
+      (for ([note-line (in-list (file->lines "keys.txt"))]
+            [row (in-naturals)])
+        (match-define (cons note-s freq+offs) (string-split note-line))
+        (define note-l
+          (for/list ([note (in-list (string-split note-s "/"))])
+            (regexp-replace #rx"♭"
+                            (regexp-replace #rx"♯" note "#")
+                            "b")))
+        (define periods
+          (for/list ([fo (in-list freq+offs)]
+                     [i (in-naturals)]
+                     #:when (even? i))
+            (define f (string->number fo))
+            (cons (pulse-pitch->period f)
+                  (triangle-pitch->period f))))
+        (for ([p (in-list periods)]
+              [octave (in-naturals)])
+          (match-define (cons pul tri) p)
+          (define semitone (+ (- (* octave 12) (* 4 12)) row))
+          (define stn semitone)
+          (when pul
+            (hash-set! PULSE stn pul))
+          (when tri
+            (hash-set! TRIANGLE stn tri))
+          (for ([n (in-list note-l)])
+            (define no (string->symbol (format "~a~a" n octave)))
+            (when pul
+              (hash-set! PULSE no pul))
+            (when tri
+              (hash-set! TRIANGLE no tri)))))
+      (values PULSE TRIANGLE)))
+
   (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
 
-  (command-line
-   #:program "apu"
-   #:args (log-p)
-   (play! #:log-p log-p
-          (cmd:repeat
-           (cmd:seqn*
-            (cmd:hold* 30
-                       (cmd:frame* (wave:pulse 0 (pulse-pitch->period 261.626) 4)
-                                   #f #f #f #f #f))
-            (cmd:hold* 30
-                       (cmd:frame* #f
-                                   (wave:pulse 2 (pulse-pitch->period 440.00) 4)
-                                   #f #f #f #f))
-            (cmd:hold* 15
-                       (cmd:frame* #f #f
-                                   (wave:triangle #t (triangle-pitch->period 440.00))
-                                   #f #f #f))
-            (cmd:hold* 15
-                       (cmd:frame* #f #f #f
-                                   (wave:noise #f 0 4)
-                                   #f #f))
-            ;; XXX This is not a convenient interface, need a way to
-            ;; fuse a DMC across the other frames
-            (cmd:hold*f 55
-                        (λ (s)
-                          (cmd:frame* #f #f #f #f
-                                      (wave:dmc sample-bs s)
-                                      #f))))))))
+  (when #t
+    (command-line
+     #:program "apu"
+     #:args (log-p)
+     (play! #:log-p log-p
+            (cmd:repeat
+             (cmd:seqn*
+              (cmd:seqn*
+               (cmd:hold* 30
+                          (cmd:frame* (wave:pulse 0 (pulse-pitch->period 261.626) 4)
+                                      #f #f #f #f #f))
+               (cmd:hold* 30
+                          (cmd:frame* #f
+                                      (wave:pulse 2 (pulse-pitch->period 440.00) 4)
+                                      #f #f #f #f))
+               (cmd:hold* 15
+                          (cmd:frame* #f #f
+                                      (wave:triangle #t (triangle-pitch->period 440.00))
+                                      #f #f #f))
+               (cmd:hold* 15
+                          (cmd:frame* #f #f #f
+                                      (wave:noise #f 0 4)
+                                      #f #f))
+               ;; XXX This is not a convenient interface, need a way to
+               ;; fuse a DMC across the other frames
+               (cmd:hold*f 55
+                           (λ (s)
+                             (cmd:frame* #f #f #f #f
+                                         (wave:dmc sample-bs s)
+                                         #f))))
+              (cmd:seqn
+               (for/list ([stp
+                           (for/list ([st (in-range -48 +83)])
+                             (hash-ref PULSE st #f))]
+                          #:when stp)
+                 (cmd:hold* 15
+                            (cmd:frame* (wave:pulse 2 stp 4)
+                                        #f #f #f #f #f))))
+              (cmd:seqn
+               (for/list ([stp
+                           (for/list ([st (in-range -48 +83)])
+                             (hash-ref TRIANGLE st #f))]
+                          #:when stp)
+                 (cmd:hold* 15
+                            (cmd:frame* #f #f (wave:triangle #t stp) #f #f #f))))))))))
