@@ -162,83 +162,16 @@
 
 (module+ main
   (require racket/math
-           racket/gui/base
-           racket/class)
+           racket/cmdline)
 
-  (define MONO-P1-bs (make-buffer 1))
-  (define MONO-P2-bs (make-buffer 1))
-  (define MONO-T-bs (make-buffer 1))
-  (define MONO-N-bs (make-buffer 1))
-  (define STEREO-D-bs (make-buffer channels))
-  (define STEREO-COMBINED-bs (make-buffer channels))
-
-  (define OSC-W samples-per-buffer)
-  (define OSC-Hshort (fx* 2 16))
-  (define OSC-Htall 128)
-  (define OSC-MARGIN 8)
-  (define OSCSshort (+ 1 1 1 1))
-  (define OSCStall (+ 1 1 1 1))
-
-  (define W
-    (+ OSC-MARGIN OSC-W OSC-MARGIN))
-  (define H
-    (+ OSC-MARGIN
-       (* (+ OSC-Hshort OSC-MARGIN) OSCSshort)
-       (* (+ OSC-Htall OSC-MARGIN) OSCStall)
-       OSC-MARGIN))
-  (define (paint! c dc)
-    (send dc set-background "black")
-    (send dc set-text-foreground "yellow")
-    (send dc set-pen "yellow" 1 'solid)
-    (send dc clear)
-
-    (begin-encourage-inline
-     (define (draw-osc! label start-y bs channels off start-x)
-       (send dc draw-text label OSC-MARGIN start-y)
-       (for/fold ([last-x -1] [last-y 0])
-                 ([i (in-range samples-per-buffer)])
-         (define this-x i)
-         (define this-y (fx- (bytes-ref bs (fx+ off (fx* i channels))) start-x))
-         (send dc draw-line
-               (fx+ OSC-MARGIN last-x) (fx- start-y last-y)
-               (fx+ OSC-MARGIN this-x) (fx- start-y this-y))
-         (values this-x this-y))))
-
-    (define start-y 0)
-    (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Hshort)))
-    (draw-osc! "Pulse-1" start-y MONO-P1-bs 1 0 0)
-    (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Hshort)))
-    (draw-osc! "Pulse-2" start-y MONO-P2-bs 1 0 0)
-    (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Hshort)))
-    (draw-osc! "Triangle" start-y MONO-T-bs 1 0 0)
-    (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Hshort)))
-    (draw-osc! "Noise" start-y MONO-N-bs 1 0 0)
-    (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Htall)))
-    (draw-osc! "DMC-L" start-y STEREO-D-bs channels 0 0)
-    (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Htall)))
-    (draw-osc! "DMC-R" start-y STEREO-D-bs channels 1 0)
-    (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Htall)))
-    (draw-osc! "Combined-L" start-y STEREO-COMBINED-bs channels 0 128)
-    (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Htall)))
-    (draw-osc! "Combined-R" start-y STEREO-COMBINED-bs channels 1 128)
-    (void))
-  (define f (new frame% [label "SRPNT"] [width W] [height H]
-                 [min-width W] [min-height H]))
-  (define c (new canvas% [parent f] [paint-callback paint!]
-                 [min-width W] [min-height H]))
-
-  (when #f
-    (thread
-     (lambda ()
-       (define frame-delay (fl* (fl/ 1.0 60.0) 1000.0))
-       (let loop ()
-         (define start (current-inexact-milliseconds))
-         (send c refresh-now)
-         (yield (alarm-evt (fl+ start frame-delay)))
-         (loop))))
-    (send f show #t))
+  (define log-p #f)
+  (command-line #:program "apu"
+                #:args (the-log-p)
+                (set! log-p the-log-p))
+  (define tmp-log-p (format "~a.tmp" log-p))
 
   (define bp (make-bytes-player))
+  (define STEREO-COMBINED-bs (make-buffer channels))
   (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
 
   (define p1-period
@@ -260,15 +193,16 @@
   (define p2-angle 0.0)
   (define t-angle 0.0)
   (let loop ([s 0])
+    (define log-op (open-output-file tmp-log-p #:exists 'replace))
     (for ([i (in-range samples-per-buffer)])
       (define-values (p1 new-p1-angle)
         (pulse-wave 2 p1-period
                     (if (fx= (fxmodulo s 4) 1) 7 0) p1-angle))
       (define-values (p2 new-p2-angle)
         (pulse-wave 2 p2-period
-                    (if (fx< s 30) #;(fx= (fxmodulo s 4) 1) 7 0) p2-angle))
+                    (if (fx= (fxmodulo s 4) 2) 7 0) p2-angle))
       (define-values (t new-t-angle)
-        (triangle-wave (if (fx< 30 s) #;(fx= (fxmodulo s 2) 2) #t 0)
+        (triangle-wave (if (fx= (fxmodulo s 4) 3) #t #f)
                        t-period
                        t-angle))
       ;; xxx 16 preset pitches
@@ -297,15 +231,12 @@
       (set! p1-angle new-p1-angle)
       (set! p2-angle new-p2-angle)
       (set! t-angle new-t-angle)
-      (bytes-set! MONO-P1-bs i p1)
-      (bytes-set! MONO-P2-bs i p2)
-      (bytes-set! MONO-T-bs i t)
-      (bytes-set! MONO-N-bs i n)
-      (bytes-set! STEREO-D-bs (fx+ 0 (fx* i channels)) d)
-      (bytes-set! STEREO-D-bs (fx+ 1 (fx* i channels)) d)
+      (write-bytes (bytes p1 p2 t n d d out out) log-op)
       (bytes-set! STEREO-COMBINED-bs (fx+ 0 (fx* i channels)) out)
       (bytes-set! STEREO-COMBINED-bs (fx+ 1 (fx* i channels)) out))
     (bytes-play! bp STEREO-COMBINED-bs)
+    (close-output-port log-op)
+    (rename-file-or-directory tmp-log-p log-p #t)
     (loop (fxmodulo (fx+ 1 s) 60)))
   (close-bytes-player! bp)
   (printf "...stop.\n"))

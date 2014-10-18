@@ -26,13 +26,13 @@
   (define stream
     (pa-open-stream
      #f output-stream-parameters
-     sample-rate.0 frames-per-buffer null #f #f))
+     sample-rate.0 samples-per-buffer null #f #f))
   (pa-start-stream stream)
   stream)
 (define (bytes-play! bp bs)
   (with-handlers ([exn:fail?
                    (λ (x) (eprintf "~a\n" (exn-message x)))])
-    (pa-write-stream bp bs frames-per-buffer)))
+    (pa-write-stream bp bs samples-per-buffer)))
 (define (close-bytes-player! bp)
   (pa-close-stream bp))
 
@@ -54,8 +54,8 @@
   (define bp (make-bytes-player))
   (printf "1-second tone at 440 Hz\n")
   (for ([s (in-range 60)])
-    (for ([j (in-range frames-per-buffer)])
-      (define i (fx+ (fx* frames-per-buffer s) j))
+    (for ([j (in-range samples-per-buffer)])
+      (define i (fx+ (fx* samples-per-buffer s) j))
       (define sample
         (fxmax
          0
