@@ -126,7 +126,6 @@
   (if (and (fx<= 0 r) (fx<= r max-pulse-period))
       r
       #f))
-;; xxx I think this is wrong
 (define (triangle-wave on? period angle)
   (define pitch (triangle-period->pitch period))
   (define next-angle (angle-add/unit angle (fl* pitch inv-sample-rate.0)))
