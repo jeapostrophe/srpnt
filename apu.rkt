@@ -1,11 +1,8 @@
 #lang racket/base
 (require srpnt/bytes-player
-         racket/match
-         racket/require
-         (for-syntax racket/base)
-         (filtered-in (λ (name) (regexp-replace #rx"unsafe-" name ""))
-                      racket/unsafe/ops)
-         racket/performance-hint)
+         racket/match         
+         racket/flonum
+         racket/fixnum)
 (module+ test
   (require racket/file))
 
@@ -77,16 +74,16 @@
 (define tndmix-bs
   (make-tnd-mix-bytes))
 
-;; http://opengameart.org/forumtopic/kickin-it-old-school-setting-up-nes-style-chiptunes
+;; XXX http://opengameart.org/forumtopic/kickin-it-old-school-setting-up-nes-style-chiptunes
 
-;; Look at: http://www.mattmontag.com/projects-page/nintendo-vst
+;; XXX http://www.mattmontag.com/projects-page/nintendo-vst
 (define inv-sample-rate.0
   (fl/ 1.0 sample-rate.0))
 
 (define (angle-add/unit a b)
   (define sum (fl+ a b))
   (cond [(fl<= 1.0 sum)
-         (fl- sum 1.0)]
+         (fl- sum (flfloor sum))]
         [else
          sum]))
 
@@ -135,8 +132,11 @@
         0))
   (values out next-angle))
 
-(define (noise mode period register angle)
-  #f)
+;; xxx fix
+(define (noise short? period volume register angle)
+  (values (fx* volume (random 2))
+          register
+          angle))
 
 (define (read-sample/port base mult p)
   (define-values (7bit-out 7bit-in) (make-pipe))
@@ -160,83 +160,7 @@
   (close-output-port gzipped)
   (read-sample/port base mult ungzipped))
 
-(module+ main
-  (require racket/math
-           racket/cmdline)
+;; XXX
+(provide (all-defined-out))
 
-  (define log-p #f)
-  (command-line #:program "apu"
-                #:args (the-log-p)
-                (set! log-p the-log-p))
-  (define tmp-log-p (format "~a.tmp" log-p))
-
-  (define bp (make-bytes-player))
-  (define STEREO-COMBINED-bs (make-buffer channels))
-  (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
-
-  (define p1-period
-    (pulse-pitch->period 261.626))
-  (printf "P1: ~a\n" p1-period)
-  (define p2-period
-    (pulse-pitch->period 440.00))
-  (printf "P2: ~a\n" p2-period)
-  (define t-period
-    (or #f
-        (triangle-pitch->period 440.00)
-        (triangle-pitch->period 174.614)))
-  (printf "T: ~a\n" t-period)
-
-  ;; http://problemkaputt.de/everynes.htm
-
-  (printf "starting...\n")
-  (define p1-angle 0.0)
-  (define p2-angle 0.0)
-  (define t-angle 0.0)
-  (let loop ([s 0])
-    (define log-op (open-output-file tmp-log-p #:exists 'replace))
-    (for ([i (in-range samples-per-buffer)])
-      (define-values (p1 new-p1-angle)
-        (pulse-wave 2 p1-period
-                    (if (fx= (fxmodulo s 4) 1) 7 0) p1-angle))
-      (define-values (p2 new-p2-angle)
-        (pulse-wave 2 p2-period
-                    (if (fx= (fxmodulo s 4) 2) 7 0) p2-angle))
-      (define-values (t new-t-angle)
-        (triangle-wave (if (fx= (fxmodulo s 4) 3) #t #f)
-                       t-period
-                       t-angle))
-      ;; xxx 16 preset pitches
-      ;; xxx 2 modes? (looped noise)
-      ;; xxx volume?
-      (define n
-        ;; xxx different prng?
-        (if (fx= (fxmodulo s 4) 0)
-            (random 16)
-            0))
-      (define d-offset
-        (fxmodulo (fx+ (fx* s samples-per-buffer) i)
-                  (bytes-length sample-bs)))
-      (define d
-        (bytes-ref sample-bs d-offset))
-
-      (define p-mixed
-        (bytes-ref pmix-bs (p-mix-off p1 p2)))
-      (define tnd-mixed
-        (bytes-ref tndmix-bs (tnd-mix-off t n d)))
-      (define mixed
-        (fx+ p-mixed tnd-mixed))
-      (define out
-        (fx+ 128 mixed))
-
-      (set! p1-angle new-p1-angle)
-      (set! p2-angle new-p2-angle)
-      (set! t-angle new-t-angle)
-      (write-bytes (bytes p1 p2 t n d d out out) log-op)
-      (bytes-set! STEREO-COMBINED-bs (fx+ 0 (fx* i channels)) out)
-      (bytes-set! STEREO-COMBINED-bs (fx+ 1 (fx* i channels)) out))
-    (bytes-play! bp STEREO-COMBINED-bs)
-    (close-output-port log-op)
-    (rename-file-or-directory tmp-log-p log-p #t)
-    (loop (fxmodulo (fx+ 1 s) 60)))
-  (close-bytes-player! bp)
-  (printf "...stop.\n"))
+;; XXX http://problemkaputt.de/everynes.htm
