@@ -53,14 +53,10 @@
  (define (mixer-end! m) ((mixer-end m)))
  (define (mixer-close! m) ((mixer-close m))))
 
-(define (logging&playing-mixer log-p tmp-log-p)
+(define (playing-mixer/inform inform-begin! inform-out! inform-end!)
   (define bp (make-bytes-player))
   (define bs (make-buffer channels))
-  (define log-op #f)
-  (define (begin!)
-    (set! log-op
-          (and tmp-log-p (open-output-file tmp-log-p #:exists 'replace)))
-    (void))
+  (define begin! inform-begin!)
   (define (mix! i p1 p2 t n ld rd)
     (define p-mixed
       (p-mix p1 p2))
@@ -72,20 +68,35 @@
       (fx+ 128 (fx+ p-mixed Ltnd-mixed)))
     (define rout
       (fx+ 128 (fx+ p-mixed Rtnd-mixed)))
-    (when tmp-log-p
-      (write-bytes (bytes p1 p2 t n ld rd lout rout) log-op))
+    (inform-out! p1 p2 t n ld rd lout rout)
     (bytes-set! bs (fx+ 0 (fx* i channels)) lout)
     (bytes-set! bs (fx+ 1 (fx* i channels)) rout)
     (void))
   (define (end!)
     (bytes-play! bp bs)
-    (when tmp-log-p
-      (close-output-port log-op)
-      (rename-file-or-directory tmp-log-p log-p #t))
+    (inform-end!)
     (void))
   (define (close!)
     (close-bytes-player! bp))
   (mixer begin! mix! end! close!))
+
+(define (playing-mixer)
+  (playing-mixer/inform void void void))
+
+(define (logging&playing-mixer log-p)
+  (define tmp-log-p
+    (format "~a.tmp" log-p))
+  (define log-op #f)
+  (define (inform-begin!)
+    (set! log-op (open-output-file tmp-log-p #:exists 'replace))
+    (void))
+  (define (inform-out! p1 p2 t n ld rd lout rout)
+    (write-bytes (bytes p1 p2 t n ld rd lout rout) log-op))
+  (define (inform-end!)
+    (close-output-port log-op)
+    (rename-file-or-directory tmp-log-p log-p #t)
+    (void))
+  (playing-mixer/inform inform-begin! inform-out! inform-end!))
 
 (struct synth (p1-% p2-% t-% n-reg n-%) #:mutable)
 (define (make-synth)
@@ -124,10 +135,11 @@
 
 (define (play! c
                #:log-p [log-p #f])
-  (define tmp-log-p
-    (and log-p (format "~a.tmp" log-p)))
   (printf "starting...\n")
-  (define m (logging&playing-mixer log-p tmp-log-p))
+  (define m
+    (if log-p
+        (logging&playing-mixer log-p)
+        (playing-mixer)))
   (define s (make-synth))
   (let loop ([c c])
     (match c
