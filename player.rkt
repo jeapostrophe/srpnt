@@ -1,6 +1,6 @@
 #lang racket/base
 (require srpnt/bytes-player
-         "apu.rkt"
+         srpnt/apu
          racket/match
          racket/flonum
          racket/fixnum
