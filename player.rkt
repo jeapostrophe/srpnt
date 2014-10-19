@@ -90,11 +90,11 @@
            (bytes-ref rd-bs (fx+ rd-off i)))
 
          (define p-mixed
-           (bytes-ref pmix-bs (p-mix-off p1 p2)))
+           (p-mix p1 p2))
          (define Ltnd-mixed
-           (bytes-ref tndmix-bs (tnd-mix-off t n ld)))
+           (tnd-mix t n ld))
          (define Rtnd-mixed
-           (bytes-ref tndmix-bs (tnd-mix-off t n rd)))
+           (tnd-mix t n rd))
          (define lout
            (fx+ 128 (fx+ p-mixed Ltnd-mixed)))
          (define rout
@@ -167,6 +167,20 @@
      (play! #:log-p log-p
             (cmd:repeat
              (cmd:seqn*
+              (cmd:seqn
+               (for*/list ([short? (in-list (list #f #t))]
+                           [noise-p (in-range 16)])
+                 (cmd:hold* 15
+                            (cmd:frame* #f #f #f
+                                        (wave:noise short? noise-p 4)
+                                        #f #f))))
+              (cmd:seqn
+               (for/list ([stp
+                           (for/list ([st (in-range -48 +83)])
+                             (hash-ref TRIANGLE st #f))]
+                          #:when stp)
+                 (cmd:hold* 15
+                            (cmd:frame* #f #f (wave:triangle #t stp) #f #f #f))))
               (cmd:seqn*
                (cmd:hold* 30
                           (cmd:frame* (wave:pulse 0 (pulse-pitch->period 261.626) 4)
@@ -197,11 +211,4 @@
                           #:when stp)
                  (cmd:hold* 15
                             (cmd:frame* (wave:pulse 2 stp 4)
-                                        #f #f #f #f #f))))
-              (cmd:seqn
-               (for/list ([stp
-                           (for/list ([st (in-range -48 +83)])
-                             (hash-ref TRIANGLE st #f))]
-                          #:when stp)
-                 (cmd:hold* 15
-                            (cmd:frame* #f #f (wave:triangle #t stp) #f #f #f))))))))))
+                                        #f #f #f #f #f))))))))))
