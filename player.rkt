@@ -158,7 +158,7 @@
   (require racket/math
            racket/cmdline)
 
-  ;; XXX cut out the ultra-high octaves
+  ;; xxx move to "music"
   (define-values (PULSE TRIANGLE)
     (let ()
       (local-require racket/file
@@ -181,7 +181,7 @@
             (cons (pulse-freq->period f)
                   (triangle-freq->period f))))
         (for ([p (in-list periods)]
-              [octave (in-naturals)])
+              [octave (in-range 8)])
           (match-define (cons pul tri) p)
           (define semitone (+ (- (* octave 12) (* 4 12)) row))
           (define stn semitone)
@@ -196,6 +196,8 @@
             (when tri
               (hash-set! TRIANGLE no tri)))))
       (values PULSE TRIANGLE)))
+  
+  ;; xxx move to "song"
 
   (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
 
