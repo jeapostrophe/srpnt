@@ -4,7 +4,8 @@
          racket/match
          racket/flonum
          racket/fixnum
-         racket/contract/base)
+         racket/contract/base
+         racket/performance-hint)
 
 (define (nat-pow2/c k)
   (and/c fixnum? (between/c 0 (fx- (expt 2 k) 1))))
@@ -45,26 +46,18 @@
    (for/list ([f (in-range frames)])
      (cf (fx* f samples-per-buffer)))))
 
-;; XXX separate bp/bs into a mixer
-(struct player (log-p tmp-log-p bp bs p1-% p2-% t-% n-reg n-%) #:mutable)
-(define (make-player log-p tmp-log-p)
+(struct mixer (begin mix end close))
+(begin-encourage-inline
+ (define (mixer-begin! m) ((mixer-begin m)))
+ (define (mixer-mix! m i p1 p2 t n ld rd) ((mixer-mix m) i p1 p2 t n ld rd))
+ (define (mixer-end! m) ((mixer-end m)))
+ (define (mixer-close! m) ((mixer-close m))))
+
+(define (logging&playing-mixer log-p tmp-log-p)
   (define bp (make-bytes-player))
   (define bs (make-buffer channels))
-  (player log-p tmp-log-p bp bs 0.0 0.0 0.0 1 0.0))
-(define (close-player! p)
-  (match-define (player log-p tmp-log-p bp bs p1-% p2-% t-% n-reg n-%) p)
-  (close-bytes-player! bp))
-(define (player-step! p p1 p2 t n ld rd)
-  (match-define (player log-p tmp-log-p bp bs _ _ _ _ _) p)
-  (match-define (wave:pulse p1-duty p1-period p1-vol) p1)
-  (match-define (wave:pulse p2-duty p2-period p2-vol) p2)
-  (match-define (wave:triangle t-on? t-period) t)
-  (match-define (wave:noise n-short? n-period n-volume) n)
-  (match-define (wave:dmc ld-bs ld-off) ld)
-  (match-define (wave:dmc rd-bs rd-off) rd)
-
   (define log-op #f)
-  (define (begin-mix!)
+  (define (begin!)
     (set! log-op
           (and tmp-log-p (open-output-file tmp-log-p #:exists 'replace)))
     (void))
@@ -84,16 +77,30 @@
     (bytes-set! bs (fx+ 0 (fx* i channels)) lout)
     (bytes-set! bs (fx+ 1 (fx* i channels)) rout)
     (void))
-  (define (end-mix!)
+  (define (end!)
     (bytes-play! bp bs)
     (when tmp-log-p
       (close-output-port log-op)
       (rename-file-or-directory tmp-log-p log-p #t))
     (void))
+  (define (close!)
+    (close-bytes-player! bp))
+  (mixer begin! mix! end! close!))
 
-  (begin-mix!)
+(struct synth (p1-% p2-% t-% n-reg n-%) #:mutable)
+(define (make-synth)
+  (synth 0.0 0.0 0.0 1 0.0))
+(define (synth-step! m p p1 p2 t n ld rd)
+  (match-define (wave:pulse p1-duty p1-period p1-vol) p1)
+  (match-define (wave:pulse p2-duty p2-period p2-vol) p2)
+  (match-define (wave:triangle t-on? t-period) t)
+  (match-define (wave:noise n-short? n-period n-volume) n)
+  (match-define (wave:dmc ld-bs ld-off) ld)
+  (match-define (wave:dmc rd-bs rd-off) rd)
+
+  (mixer-begin! m)
   (for ([i (in-range samples-per-buffer)])
-    (match-define (player _ _ _ _ p1-% p2-% t-% n-reg n-%) p)
+    (match-define (synth p1-% p2-% t-% n-reg n-%) p)
     (define-values (p1 new-p1-%)
       (pulse-wave p1-duty p1-period p1-vol p1-%))
     (define-values (p2 new-p2-%)
@@ -107,20 +114,21 @@
     (define rd
       (bytes-ref rd-bs (fx+ rd-off i)))
 
-    (set-player-p1-%! p new-p1-%)
-    (set-player-p2-%! p new-p2-%)
-    (set-player-t-%! p new-t-%)
-    (set-player-n-reg! p new-n-reg)
-    (set-player-n-%! p new-n-%)
-    (mix! i p1 p2 t n ld rd))
-  (end-mix!))
+    (set-synth-p1-%! p new-p1-%)
+    (set-synth-p2-%! p new-p2-%)
+    (set-synth-t-%! p new-t-%)
+    (set-synth-n-reg! p new-n-reg)
+    (set-synth-n-%! p new-n-%)
+    (mixer-mix! m i p1 p2 t n ld rd))
+  (mixer-end! m))
 
 (define (play! c
                #:log-p [log-p #f])
   (define tmp-log-p
     (and log-p (format "~a.tmp" log-p)))
   (printf "starting...\n")
-  (define p (make-player log-p tmp-log-p))
+  (define m (logging&playing-mixer log-p tmp-log-p))
+  (define s (make-synth))
   (let loop ([c c])
     (match c
       [(cmd:seqn l)
@@ -130,8 +138,8 @@
          (loop c)
          (repeat))]
       [(cmd:frame p1 p2 t n ld rd)
-       (player-step! p p1 p2 t n ld rd)]))
-  (close-player! p)
+       (synth-step! m s p1 p2 t n ld rd)]))
+  (mixer-close! m)
   (printf "...stop.\n"))
 
 (module+ main
