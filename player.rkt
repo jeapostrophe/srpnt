@@ -25,26 +25,40 @@
 (define blank-dmc-bs (make-buffer 1))
 (define off-wave:dmc (wave:dmc blank-dmc-bs 0))
 
-(struct cmd:frame (p1 p2 t n ld rd))
-(define (cmd:frame* p1 p2 t n ld rd)
-  (cmd:frame (or p1 off-wave:pulse)
-             (or p2 off-wave:pulse)
-             (or t off-wave:triangle)
-             (or n off-wave:noise)
-             (or ld off-wave:dmc)
-             (or rd off-wave:dmc)))
-(struct cmd:seqn (l))
-(define (cmd:seqn* . l)
-  (cmd:seqn l))
-(struct cmd:repeat (c))
-(define (cmd:hold* frames c)
-  (cmd:seqn
-   (for/list ([f (in-range frames)])
-     c)))
-(define (cmd:hold*f frames cf)
-  (cmd:seqn
-   (for/list ([f (in-range frames)])
-     (cf (fx* f samples-per-buffer)))))
+(struct synth (p1-% p2-% t-% n-reg n-%) #:mutable)
+(define (make-synth)
+  (synth 0.0 0.0 0.0 1 0.0))
+(define (synth-step! m p p1 p2 t n ld rd)
+  (match-define (wave:pulse p1-duty p1-period p1-vol) p1)
+  (match-define (wave:pulse p2-duty p2-period p2-vol) p2)
+  (match-define (wave:triangle t-on? t-period) t)
+  (match-define (wave:noise n-short? n-period n-volume) n)
+  (match-define (wave:dmc ld-bs ld-off) ld)
+  (match-define (wave:dmc rd-bs rd-off) rd)
+
+  (mixer-begin! m)
+  (for ([i (in-range samples-per-buffer)])
+    (match-define (synth p1-% p2-% t-% n-reg n-%) p)
+    (define-values (p1 new-p1-%)
+      (pulse-wave p1-duty p1-period p1-vol p1-%))
+    (define-values (p2 new-p2-%)
+      (pulse-wave p2-duty p2-period p2-vol p2-%))
+    (define-values (t new-t-%)
+      (triangle-wave t-on? t-period t-%))
+    (define-values (n new-n-reg new-n-%)
+      (noise n-short? n-period n-volume n-reg n-%))
+    (define ld
+      (bytes-ref ld-bs (fx+ ld-off i)))
+    (define rd
+      (bytes-ref rd-bs (fx+ rd-off i)))
+
+    (set-synth-p1-%! p new-p1-%)
+    (set-synth-p2-%! p new-p2-%)
+    (set-synth-t-%! p new-t-%)
+    (set-synth-n-reg! p new-n-reg)
+    (set-synth-n-%! p new-n-%)
+    (mixer-mix! m i p1 p2 t n ld rd))
+  (mixer-end! m))
 
 (struct mixer (begin mix end close))
 (begin-encourage-inline
@@ -98,40 +112,26 @@
     (void))
   (playing-mixer/inform inform-begin! inform-out! inform-end!))
 
-(struct synth (p1-% p2-% t-% n-reg n-%) #:mutable)
-(define (make-synth)
-  (synth 0.0 0.0 0.0 1 0.0))
-(define (synth-step! m p p1 p2 t n ld rd)
-  (match-define (wave:pulse p1-duty p1-period p1-vol) p1)
-  (match-define (wave:pulse p2-duty p2-period p2-vol) p2)
-  (match-define (wave:triangle t-on? t-period) t)
-  (match-define (wave:noise n-short? n-period n-volume) n)
-  (match-define (wave:dmc ld-bs ld-off) ld)
-  (match-define (wave:dmc rd-bs rd-off) rd)
-
-  (mixer-begin! m)
-  (for ([i (in-range samples-per-buffer)])
-    (match-define (synth p1-% p2-% t-% n-reg n-%) p)
-    (define-values (p1 new-p1-%)
-      (pulse-wave p1-duty p1-period p1-vol p1-%))
-    (define-values (p2 new-p2-%)
-      (pulse-wave p2-duty p2-period p2-vol p2-%))
-    (define-values (t new-t-%)
-      (triangle-wave t-on? t-period t-%))
-    (define-values (n new-n-reg new-n-%)
-      (noise n-short? n-period n-volume n-reg n-%))
-    (define ld
-      (bytes-ref ld-bs (fx+ ld-off i)))
-    (define rd
-      (bytes-ref rd-bs (fx+ rd-off i)))
-
-    (set-synth-p1-%! p new-p1-%)
-    (set-synth-p2-%! p new-p2-%)
-    (set-synth-t-%! p new-t-%)
-    (set-synth-n-reg! p new-n-reg)
-    (set-synth-n-%! p new-n-%)
-    (mixer-mix! m i p1 p2 t n ld rd))
-  (mixer-end! m))
+(struct cmd:frame (p1 p2 t n ld rd))
+(define (cmd:frame* p1 p2 t n ld rd)
+  (cmd:frame (or p1 off-wave:pulse)
+             (or p2 off-wave:pulse)
+             (or t off-wave:triangle)
+             (or n off-wave:noise)
+             (or ld off-wave:dmc)
+             (or rd off-wave:dmc)))
+(struct cmd:seqn (l))
+(define (cmd:seqn* . l)
+  (cmd:seqn l))
+(struct cmd:repeat (c))
+(define (cmd:hold* frames c)
+  (cmd:seqn
+   (for/list ([f (in-range frames)])
+     c)))
+(define (cmd:hold*f frames cf)
+  (cmd:seqn
+   (for/list ([f (in-range frames)])
+     (cf f))))
 
 (define (play! c
                #:log-p [log-p #f])
@@ -158,6 +158,7 @@
   (require racket/math
            racket/cmdline)
 
+  ;; XXX cut out the ultra-high octaves
   (define-values (PULSE TRIANGLE)
     (let ()
       (local-require racket/file
@@ -198,55 +199,102 @@
 
   (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
 
-  (when #t
-    (command-line
-     #:program "apu"
-     #:args (log-p)
-     (play! #:log-p log-p
-            (cmd:repeat
-             (cmd:seqn*
-              (cmd:seqn
-               (for*/list ([short? (in-list (list #f #t))]
-                           [noise-p (in-range 16)])
-                 (cmd:hold* 15
-                            (cmd:frame* #f #f #f
-                                        (wave:noise short? noise-p 4)
-                                        #f #f))))
-              (cmd:seqn
-               (for/list ([stp
-                           (for/list ([st (in-range -48 +83)])
-                             (hash-ref TRIANGLE st #f))]
-                          #:when stp)
-                 (cmd:hold* 15
-                            (cmd:frame* #f #f (wave:triangle #t stp) #f #f #f))))
-              (cmd:seqn*
-               (cmd:hold* 30
-                          (cmd:frame* (wave:pulse 0 (pulse-freq->period 261.626) 4)
-                                      #f #f #f #f #f))
-               (cmd:hold* 30
-                          (cmd:frame* #f
-                                      (wave:pulse 2 (pulse-freq->period 440.00) 4)
-                                      #f #f #f #f))
-               (cmd:hold* 15
-                          (cmd:frame* #f #f
-                                      (wave:triangle #t (triangle-freq->period 440.00))
-                                      #f #f #f))
-               (cmd:hold* 15
-                          (cmd:frame* #f #f #f
-                                      (wave:noise #f 0 4)
-                                      #f #f))
-               ;; XXX This is not a convenient interface, need a way to
-               ;; fuse a DMC across the other frames
-               (cmd:hold*f 55
-                           (λ (s)
-                             (cmd:frame* #f #f #f #f
-                                         (wave:dmc sample-bs s)
-                                         #f))))
-              (cmd:seqn
-               (for/list ([stp
-                           (for/list ([st (in-range -48 +83)])
-                             (hash-ref PULSE st #f))]
-                          #:when stp)
-                 (cmd:hold* 15
-                            (cmd:frame* (wave:pulse 2 stp 4)
-                                        #f #f #f #f #f))))))))))
+  (command-line
+   #:program "apu"
+   #:args (log-p)
+   (play!
+    #:log-p log-p
+    (cmd:repeat
+     (cmd:seqn*
+      ;; "Bad Dudes"
+      (cmd:hold* 10
+                 (cmd:seqn*
+                  (cmd:hold*f 40
+                              (λ (f)
+                                (cmd:frame* (wave:pulse (modulo f 3)
+                                                        (pulse-freq->period 261.626)
+                                                        7)
+                                            #f #f #f #f #f)))
+                  (cmd:hold* 20
+                             (cmd:frame* #f #f #f #f #f #f))))
+      ;; "Alien 3"
+      (cmd:hold* 10
+                 (cmd:seqn*
+                  (cmd:seqn
+                   (for/list ([vol (in-list (list 0 7 6 5 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 0))]
+                              [dperiod (in-list (list -1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3 4 4 -3 -4 -4 -3 -4 -4 3 4 4 3 4 4 -3 -4 -4 -3 -4 -4 3 4 4 -3 -4 -4 -3))]
+                              [duty (in-list (list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1  0 0 0 0 0 0 0 0 1))])
+                     (cmd:frame* (wave:pulse duty
+                                             (+ (pulse-freq->period 261.626) dperiod)
+                                             vol)
+                                 #f #f #f #f #f)))
+                  (cmd:hold* 20
+                             (cmd:frame* #f #f #f #f #f #f))))
+      ;; "Gremlins 2"
+      (cmd:hold* 10
+                 (cmd:seqn*
+                  (cmd:frame* (wave:pulse 2 (pulse-freq->period 261.626) 12)
+                              #f #f #f #f #f)
+                  (cmd:hold* 3
+                             (cmd:frame* (wave:pulse 1 (pulse-freq->period 261.626) 12)
+                                         #f #f #f #f #f))
+                  (cmd:hold* 4
+                             (cmd:frame* (wave:pulse 1 (pulse-freq->period 261.626) 11)
+                                         #f #f #f #f #f))
+                  (cmd:hold* 4
+                             (cmd:frame* (wave:pulse 1 (pulse-freq->period 261.626) 1)
+                                         #f #f #f #f #f))
+                  (cmd:hold* 4
+                             (cmd:frame* (wave:pulse 1 (pulse-freq->period 261.626) 3)
+                                         #f #f #f #f #f))
+                  (cmd:hold* 16
+                             (cmd:frame* #f #f #f #f #f #f))))
+      ;; Experiment with noise
+      (cmd:seqn
+       (for*/list ([short? (in-list (list #f #t))]
+                   [noise-p (in-range 16)])
+         (cmd:hold* 15
+                    (cmd:frame* #f #f #f
+                                (wave:noise short? noise-p 4)
+                                #f #f))))
+      ;; Experiment with triangle
+      (cmd:seqn
+       (for/list ([stp
+                   (for/list ([st (in-range -48 +83)])
+                     (hash-ref TRIANGLE st #f))]
+                  #:when stp)
+         (cmd:hold* 15
+                    (cmd:frame* #f #f (wave:triangle #t stp) #f #f #f))))
+      (cmd:seqn*
+       (cmd:hold* 30
+                  (cmd:frame* (wave:pulse 0 (pulse-freq->period 261.626) 4)
+                              #f #f #f #f #f))
+       (cmd:hold* 30
+                  (cmd:frame* #f
+                              (wave:pulse 2 (pulse-freq->period 440.00) 4)
+                              #f #f #f #f))
+       (cmd:hold* 15
+                  (cmd:frame* #f #f
+                              (wave:triangle #t (triangle-freq->period 440.00))
+                              #f #f #f))
+       (cmd:hold* 15
+                  (cmd:frame* #f #f #f
+                              (wave:noise #f 0 4)
+                              #f #f))
+       ;; XXX This is not a convenient interface, need a way to
+       ;; fuse a DMC across the other frames
+       (cmd:hold*f 55
+                   (λ (f)
+                     (define s (fx* f samples-per-buffer))
+                     (cmd:frame* #f #f #f #f
+                                 (wave:dmc sample-bs s)
+                                 #f))))
+      ;; Experiment with triangle
+      (cmd:seqn
+       (for/list ([stp
+                   (for/list ([st (in-range -48 +83)])
+                     (hash-ref PULSE st #f))]
+                  #:when stp)
+         (cmd:hold* 15
+                    (cmd:frame* (wave:pulse 2 stp 4)
+                                #f #f #f #f #f)))))))))
