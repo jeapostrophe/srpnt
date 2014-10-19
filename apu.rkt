@@ -15,10 +15,10 @@
 
 (define max-pulse-period (fx- (expt 2 11) 1))
 (begin-encourage-inline
- (define (pulse-period->pitch period)
+ (define (pulse-period->freq period)
    (fl/ CPU-FREQ-Hz (fl* 16.0 (fl+ 1.0 (fx->fl period))))))
-(define (pulse-pitch->period pitch)
-  (define pre-period (fl/ CPU-FREQ-Hz (fl* 16.0 pitch)))
+(define (pulse-freq->period freq)
+  (define pre-period (fl/ CPU-FREQ-Hz (fl* 16.0 freq)))
   (define r (fl->fx (flround (fl- pre-period 1.0))))
   (if (and (fx<= 0 r) (fx<= r max-pulse-period))
       r
@@ -28,10 +28,10 @@
 ;; sounds lower and makes it so a period twice as long gets the same
 ;; sound as the pulse.
 (begin-encourage-inline
- (define (triangle-period->pitch period)
-   (fl/ (pulse-period->pitch period) 2.0)))
-(define (triangle-pitch->period pitch)
-  (pulse-pitch->period (fl* 2.0 pitch)))
+ (define (triangle-period->freq period)
+   (fl/ (pulse-period->freq period) 2.0)))
+(define (triangle-freq->period freq)
+  (pulse-freq->period (fl* 2.0 freq)))
 
 ;; In the case of triangle and pulse, I am slightly inaccurate by
 ;; allowing frequencies where the corresponding period is specially
@@ -58,9 +58,9 @@
 
 (begin-encourage-inline
  (define (pulse-wave duty-n period volume %)
-   (define pitch (pulse-period->pitch period))
+   (define freq (pulse-period->freq period))
    (define duty-cycle (duty-n->cycle duty-n))
-   (define next-% (cycle%-step % pitch))
+   (define next-% (cycle%-step % freq))
    (define out
      (if (fl< next-% duty-cycle)
          volume
@@ -76,8 +76,8 @@
          0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15))
 (begin-encourage-inline
  (define (triangle-wave on? period %)
-   (define pitch (triangle-period->pitch period))
-   (define next-% (cycle%-step % pitch))
+   (define freq (triangle-period->freq period))
+   (define next-% (cycle%-step % freq))
    (define %-as-step (fl->fx (flround (fl* next-% 31.0))))
    (define out
      (if on?
@@ -94,13 +94,13 @@
 (define NOISE-PERIODS
   (vector 4 8 16 32 64 96 128 160 202 254 380 508 762 1016 2034 4068))
 (begin-encourage-inline
- (define (noise-period->pitch period)
-   (fl* (pulse-period->pitch period) 8.0)))
+ (define (noise-period->freq period)
+   (fl* (pulse-period->freq period) 8.0)))
 
 (begin-encourage-inline
  (define (noise short? period volume register %)
-   (define pitch (noise-period->pitch period))
-   (define next-% (cycle%-step % pitch))
+   (define freq (noise-period->freq period))
+   (define next-% (cycle%-step % freq))
    (define next-register
      (cond
       ;; A cycle has ended when the next-% is smaller than the current one
@@ -216,8 +216,8 @@
  noise
  p-mix
  tnd-mix
- pulse-pitch->period
- triangle-pitch->period
+ pulse-freq->period
+ triangle-freq->period
  read-sample/port
  read-sample/path
  read-sample/gzip)

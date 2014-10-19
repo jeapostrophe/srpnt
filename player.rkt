@@ -139,8 +139,8 @@
                      [i (in-naturals)]
                      #:when (even? i))
             (define f (string->number fo))
-            (cons (pulse-pitch->period f)
-                  (triangle-pitch->period f))))
+            (cons (pulse-freq->period f)
+                  (triangle-freq->period f))))
         (for ([p (in-list periods)]
               [octave (in-naturals)])
           (match-define (cons pul tri) p)
@@ -183,15 +183,15 @@
                             (cmd:frame* #f #f (wave:triangle #t stp) #f #f #f))))
               (cmd:seqn*
                (cmd:hold* 30
-                          (cmd:frame* (wave:pulse 0 (pulse-pitch->period 261.626) 4)
+                          (cmd:frame* (wave:pulse 0 (pulse-freq->period 261.626) 4)
                                       #f #f #f #f #f))
                (cmd:hold* 30
                           (cmd:frame* #f
-                                      (wave:pulse 2 (pulse-pitch->period 440.00) 4)
+                                      (wave:pulse 2 (pulse-freq->period 440.00) 4)
                                       #f #f #f #f))
                (cmd:hold* 15
                           (cmd:frame* #f #f
-                                      (wave:triangle #t (triangle-pitch->period 440.00))
+                                      (wave:triangle #t (triangle-freq->period 440.00))
                                       #f #f #f))
                (cmd:hold* 15
                           (cmd:frame* #f #f #f
