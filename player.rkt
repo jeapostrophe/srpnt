@@ -45,18 +45,73 @@
    (for/list ([f (in-range frames)])
      (cf (fx* f samples-per-buffer)))))
 
+;; XXX separate bp/bs into a mixer
+(struct player (log-p tmp-log-p bp bs p1-% p2-% t-% n-reg n-%) #:mutable)
+(define (make-player log-p tmp-log-p)
+  (define bp (make-bytes-player))
+  (define bs (make-buffer channels))
+  (player log-p tmp-log-p bp bs 0.0 0.0 0.0 1 0.0))
+(define (close-player! p)
+  (match-define (player log-p tmp-log-p bp bs p1-% p2-% t-% n-reg n-%) p)
+  (close-bytes-player! bp))
+(define (player-step! p p1 p2 t n ld rd)
+  (match-define (player log-p tmp-log-p bp bs _ _ _ _ _) p)
+  (match-define (wave:pulse p1-duty p1-period p1-vol) p1)
+  (match-define (wave:pulse p2-duty p2-period p2-vol) p2)
+  (match-define (wave:triangle t-on? t-period) t)
+  (match-define (wave:noise n-short? n-period n-volume) n)
+  (match-define (wave:dmc ld-bs ld-off) ld)
+  (match-define (wave:dmc rd-bs rd-off) rd)
+
+  (define log-op
+    (and tmp-log-p (open-output-file tmp-log-p #:exists 'replace)))
+  (for ([i (in-range samples-per-buffer)])
+    (match-define (player _ _ _ _ p1-% p2-% t-% n-reg n-%) p)
+    (define-values (p1 new-p1-%)
+      (pulse-wave p1-duty p1-period p1-vol p1-%))
+    (define-values (p2 new-p2-%)
+      (pulse-wave p2-duty p2-period p2-vol p2-%))
+    (define-values (t new-t-%)
+      (triangle-wave t-on? t-period t-%))
+    (define-values (n new-n-reg new-n-%)
+      (noise n-short? n-period n-volume n-reg n-%))
+    (define ld
+      (bytes-ref ld-bs (fx+ ld-off i)))
+    (define rd
+      (bytes-ref rd-bs (fx+ rd-off i)))
+
+    (define p-mixed
+      (p-mix p1 p2))
+    (define Ltnd-mixed
+      (tnd-mix t n ld))
+    (define Rtnd-mixed
+      (tnd-mix t n rd))
+    (define lout
+      (fx+ 128 (fx+ p-mixed Ltnd-mixed)))
+    (define rout
+      (fx+ 128 (fx+ p-mixed Rtnd-mixed)))
+
+    (set-player-p1-%! p new-p1-%)
+    (set-player-p2-%! p new-p2-%)
+    (set-player-t-%! p new-t-%)
+    (set-player-n-reg! p new-n-reg)
+    (set-player-n-%! p new-n-%)
+    (when tmp-log-p
+      (write-bytes (bytes p1 p2 t n ld rd lout rout) log-op))
+    (bytes-set! bs (fx+ 0 (fx* i channels)) lout)
+    (bytes-set! bs (fx+ 1 (fx* i channels)) rout))
+  (bytes-play! bp bs)
+  (when tmp-log-p
+    (close-output-port log-op)
+    (rename-file-or-directory tmp-log-p log-p #t))
+  (void))
+
 (define (play! c
                #:log-p [log-p #f])
   (define tmp-log-p
     (and log-p (format "~a.tmp" log-p)))
-  (define bp (make-bytes-player))
-  (define STEREO-COMBINED-bs (make-buffer channels))
   (printf "starting...\n")
-  (define p1-angle 0.0)
-  (define p2-angle 0.0)
-  (define t-angle 0.0)
-  (define n-register 1)
-  (define n-angle 0.0)
+  (define p (make-player log-p tmp-log-p))  
   (let loop ([c c])
     (match c
       [(cmd:seqn l)
@@ -66,54 +121,8 @@
          (loop c)
          (repeat))]
       [(cmd:frame p1 p2 t n ld rd)
-       (match-define (wave:pulse p1-duty p1-period p1-vol) p1)
-       (match-define (wave:pulse p2-duty p2-period p2-vol) p2)
-       (match-define (wave:triangle t-on? t-period) t)
-       (match-define (wave:noise n-short? n-period n-volume) n)
-       (match-define (wave:dmc ld-bs ld-off) ld)
-       (match-define (wave:dmc rd-bs rd-off) rd)
-
-       (define log-op
-         (and tmp-log-p (open-output-file tmp-log-p #:exists 'replace)))
-       (for ([i (in-range samples-per-buffer)])
-         (define-values (p1 new-p1-angle)
-           (pulse-wave p1-duty p1-period p1-vol p1-angle))
-         (define-values (p2 new-p2-angle)
-           (pulse-wave p2-duty p2-period p2-vol p2-angle))
-         (define-values (t new-t-angle)
-           (triangle-wave t-on? t-period t-angle))
-         (define-values (n new-n-register new-n-angle)
-           (noise n-short? n-period n-volume n-register n-angle))
-         (define ld
-           (bytes-ref ld-bs (fx+ ld-off i)))
-         (define rd
-           (bytes-ref rd-bs (fx+ rd-off i)))
-
-         (define p-mixed
-           (p-mix p1 p2))
-         (define Ltnd-mixed
-           (tnd-mix t n ld))
-         (define Rtnd-mixed
-           (tnd-mix t n rd))
-         (define lout
-           (fx+ 128 (fx+ p-mixed Ltnd-mixed)))
-         (define rout
-           (fx+ 128 (fx+ p-mixed Rtnd-mixed)))
-
-         (set! p1-angle new-p1-angle)
-         (set! p2-angle new-p2-angle)
-         (set! t-angle new-t-angle)
-         (set! n-register new-n-register)
-         (set! n-angle new-n-angle)
-         (when tmp-log-p
-           (write-bytes (bytes p1 p2 t n ld rd lout rout) log-op))
-         (bytes-set! STEREO-COMBINED-bs (fx+ 0 (fx* i channels)) lout)
-         (bytes-set! STEREO-COMBINED-bs (fx+ 1 (fx* i channels)) rout))
-       (bytes-play! bp STEREO-COMBINED-bs)
-       (when tmp-log-p
-         (close-output-port log-op)
-         (rename-file-or-directory tmp-log-p log-p #t))]))
-  (close-bytes-player! bp)
+       (player-step! p p1 p2 t n ld rd)]))
+  (close-player! p)
   (printf "...stop.\n"))
 
 (module+ main
