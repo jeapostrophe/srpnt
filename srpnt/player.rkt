@@ -156,16 +156,18 @@
 
 (module+ main
   (require racket/math
-           racket/cmdline)
+           racket/cmdline
+           racket/runtime-path)
 
   ;; xxx move to "music"
+  (define-runtime-path keys-path "keys.txt")
   (define-values (PULSE TRIANGLE)
     (let ()
       (local-require racket/file
                      racket/string)
       (define PULSE (make-hasheq))
       (define TRIANGLE (make-hasheq))
-      (for ([note-line (in-list (file->lines "keys.txt"))]
+      (for ([note-line (in-list (file->lines keys-path))]
             [row (in-naturals)])
         (match-define (cons note-s freq+offs) (string-split note-line))
         (define note-l
@@ -199,7 +201,8 @@
   
   ;; xxx move to "song"
 
-  (define sample-bs (read-sample/gzip 0 4 "clip.raw.gz"))
+  (define-runtime-path clip-path "examples/clip.raw.gz")
+  (define sample-bs (read-sample/gzip 0 4 clip-path))
 
   (command-line
    #:program "apu"
