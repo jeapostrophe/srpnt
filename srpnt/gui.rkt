@@ -73,7 +73,9 @@
        (with-handlers ([exn:fail?
                         (λ (x)
                           (eprintf "ERR: ~a\n" (exn-message x)))])
-         (yield (filesystem-change-evt p))
+         (yield
+          (choice-evt (filesystem-change-evt p)
+                      (alarm-evt (+ (current-inexact-milliseconds) 5000))))
          (define new-bs (file->bytes p))
          (define new-bs-len (bytes-length new-bs))
          (cond
