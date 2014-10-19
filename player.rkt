@@ -63,8 +63,35 @@
   (match-define (wave:dmc ld-bs ld-off) ld)
   (match-define (wave:dmc rd-bs rd-off) rd)
 
-  (define log-op
-    (and tmp-log-p (open-output-file tmp-log-p #:exists 'replace)))
+  (define log-op #f)
+  (define (begin-mix!)
+    (set! log-op
+          (and tmp-log-p (open-output-file tmp-log-p #:exists 'replace)))
+    (void))
+  (define (mix! i p1 p2 t n ld rd)
+    (define p-mixed
+      (p-mix p1 p2))
+    (define Ltnd-mixed
+      (tnd-mix t n ld))
+    (define Rtnd-mixed
+      (tnd-mix t n rd))
+    (define lout
+      (fx+ 128 (fx+ p-mixed Ltnd-mixed)))
+    (define rout
+      (fx+ 128 (fx+ p-mixed Rtnd-mixed)))
+    (when tmp-log-p
+      (write-bytes (bytes p1 p2 t n ld rd lout rout) log-op))
+    (bytes-set! bs (fx+ 0 (fx* i channels)) lout)
+    (bytes-set! bs (fx+ 1 (fx* i channels)) rout)
+    (void))
+  (define (end-mix!)
+    (bytes-play! bp bs)
+    (when tmp-log-p
+      (close-output-port log-op)
+      (rename-file-or-directory tmp-log-p log-p #t))
+    (void))
+
+  (begin-mix!)
   (for ([i (in-range samples-per-buffer)])
     (match-define (player _ _ _ _ p1-% p2-% t-% n-reg n-%) p)
     (define-values (p1 new-p1-%)
@@ -80,38 +107,20 @@
     (define rd
       (bytes-ref rd-bs (fx+ rd-off i)))
 
-    (define p-mixed
-      (p-mix p1 p2))
-    (define Ltnd-mixed
-      (tnd-mix t n ld))
-    (define Rtnd-mixed
-      (tnd-mix t n rd))
-    (define lout
-      (fx+ 128 (fx+ p-mixed Ltnd-mixed)))
-    (define rout
-      (fx+ 128 (fx+ p-mixed Rtnd-mixed)))
-
     (set-player-p1-%! p new-p1-%)
     (set-player-p2-%! p new-p2-%)
     (set-player-t-%! p new-t-%)
     (set-player-n-reg! p new-n-reg)
     (set-player-n-%! p new-n-%)
-    (when tmp-log-p
-      (write-bytes (bytes p1 p2 t n ld rd lout rout) log-op))
-    (bytes-set! bs (fx+ 0 (fx* i channels)) lout)
-    (bytes-set! bs (fx+ 1 (fx* i channels)) rout))
-  (bytes-play! bp bs)
-  (when tmp-log-p
-    (close-output-port log-op)
-    (rename-file-or-directory tmp-log-p log-p #t))
-  (void))
+    (mix! i p1 p2 t n ld rd))
+  (end-mix!))
 
 (define (play! c
                #:log-p [log-p #f])
   (define tmp-log-p
     (and log-p (format "~a.tmp" log-p)))
   (printf "starting...\n")
-  (define p (make-player log-p tmp-log-p))  
+  (define p (make-player log-p tmp-log-p))
   (let loop ([c c])
     (match c
       [(cmd:seqn l)
