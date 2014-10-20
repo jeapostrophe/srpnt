@@ -112,6 +112,7 @@
     (void))
   (playing-mixer/inform inform-begin! inform-out! inform-end!))
 
+;; A frame corresponds to 1/60th of a second.
 (struct cmd:frame (p1 p2 t n ld rd))
 (struct cmd:repeat (c))
 
@@ -161,8 +162,10 @@
            (parameterize ([current-namespace ns])
              (dynamic-require `(file ,song-p) 'main-track)))
          (play-cmd init-c))))
-    (sync (filesystem-change-evt song-p)
-          player-t)
+    (define song-p-evt
+      (filesystem-change-evt song-p))
+    (sync song-p-evt player-t)
+    (filesystem-change-evt-cancel song-p-evt)
     (kill-thread player-t)
     (loop))
 
