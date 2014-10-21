@@ -9,7 +9,7 @@
 
 (define (cmd-length* c)
   (match c
-    [(or #f '() (? void?))
+    ['()
      0]
     [(cons a d)
      (+ (cmd-length* a) (cmd-length* d))]
@@ -73,24 +73,6 @@
                (cmd:frame* #f #f #f
                            (wave:noise short? noise-p 4)
                            #f #f))))
-
-(define triangle-test-suite
-  (for/list ([stp
-              (for/list ([st (in-range -48 +83)])
-                (hash-ref TRIANGLE st #f))]
-             #:when stp)
-    (cmd:hold* 15
-               (cmd:frame* #f #f (wave:triangle #t stp) #f #f #f))))
-
-(define pulse-test-suite
-  (for/list ([stp
-              (for/list ([st (in-range -48 +83)])
-                (hash-ref PULSE st #f))]
-             #:when stp)
-    (for/list ([duty (in-list (list 0 1 2))])
-      (cmd:hold* 15
-                 (cmd:frame* (wave:pulse duty stp 4)
-                             #f #f #f #f #f)))))
 
 (define initial-test
   (list*
@@ -188,9 +170,11 @@
 ;; take in a variable frame count
 (define (ensure f c)
   (define clen (cmd-length* c))
-  (if (fx> clen f)
-      (take (flatten c) f)
-      (cons c (cmd:hold* (max 0 (- f clen)) #f))))
+  (define r
+    (if (fx<= clen f)
+        (cons c (cmd:hold* (max 0 (- f clen)) #f))
+        (take (flatten c) f)))
+  r)
 
 ;; xxx more real code
 
@@ -293,17 +277,22 @@
                [i (in-naturals)])
     (values t i)))
 
-(define (list-rotate base start)
+(define (list-rotate/modify modify base start)
   (define len (length base))
   (for/list ([i (in-range len)])
     (define new-i (fx+ start i))
     (define idx (fxmodulo new-i len))
     (define doctave (fxquotient new-i len))
-    (match (list-ref base idx)
+    (modify (list-ref base idx) doctave)))
+
+(define (list-rotate base start)
+  (define (modify v doctave)
+    (match v
       [(? symbol? tone)
        (cons tone doctave)]
       [(cons tone doctave1)
-       (cons tone (+ doctave1 doctave))])))
+       (cons tone (+ doctave1 doctave))]))
+  (list-rotate/modify modify base start))
 
 (define (scale-chromatic/idx start-idx)
   (list-rotate tone-names start-idx))
@@ -347,7 +336,8 @@
 (define-scale scale-harmonic-minor '(2 1 2 2 1 3 1))
 (define-scale scale-diminished '(2 1 2 1 2 1 2 1))
 (define-scale scale-whole-tone '(2 2 2 2 2 2))
-(define-scale scale-blues '(3 2 1 1 3 2))
+;; xxx messes with chords
+;; (define-scale scale-blues '(3 2 1 1 3 2))
 (define-scale scale-minor-pentatonic '(3 2 2 3 2))
 (define-scale scale-major-pentatonic '(2 2 3 2 3))
 (define-scale scale-hungarian-minor '(2 1 3 1 1 3 1))
@@ -411,6 +401,21 @@
 (define (all-chords chord-kind scale-tones)
   (map chord-kind (modes-of scale-tones)))
 
+(define (chord-inversion chord-tones start)
+  (list-rotate/modify
+   (λ (v d) v)
+   chord-tones
+   (fxmodulo start (length chord-tones))))
+
+(define (chord-inversions chord-tones)
+  (for/list ([start (in-range (length chord-tones))])
+    (chord-inversion chord-tones start)))
+
+(define (octave-delta tones delta)
+  (for/list ([t (in-list tones)])
+    (match-define (cons tn do) t)
+    (cons tn (+ delta do))))
+
 (module+ test
   (let ()
     (define (random-list-ref l)
@@ -427,6 +432,12 @@
       (printf "\t~a\n" t))
     (printf "Sixths:\n")
     (for ([t (in-list (all-chords chord-sixth scale-tones))])
+      (printf "\t~a\n" t))
+    (printf "Triad Inversions:\n")
+    (for ([t (in-list (chord-inversions (chord-triad scale-tones)))])
+      (printf "\t~a\n" t))
+    (printf "Seventh Inversions:\n")
+    (for ([t (in-list (chord-inversions (chord-seventh scale-tones)))])
       (printf "\t~a\n" t))))
 
 ;; xxx add different kinds of accents
@@ -443,18 +454,19 @@
     (match-define (cons tone accent?) tone*accent?)
     (define evolume (if accent? (fxmin 15 (fx+ 1 volume)) volume))
     (cmd:hold* frames
-               (wave:pulse duty (hash-ref PULSE tone) evolume))))
+               (wave:pulse duty (pulse-tone->period tone) evolume))))
 
 (define (i:triangle)
-  (λ (frames tone)
+  (λ (frames tone*accent?)
+    (match-define (cons tone accent?) tone*accent?)
     (cmd:hold* frames
-               (wave:triangle #t (hash-ref TRIANGLE tone)))))
+               (wave:triangle #t (triangle-tone->period tone)))))
 
 (define (i:pulse-plucky pluck% duty volume)
   (λ (frames tone*accent?)
     (match-define (cons tone accent?) tone*accent?)
     (define evolume (if accent? (fxmin 15 (fx+ 1 volume)) volume))
-    (define per (hash-ref PULSE tone))
+    (define per (pulse-tone->period tone))
     (define pluck-frames (fl->fx (flceiling (fl* (fx->fl frames) pluck%))))
     (define unpluck-frames (fx- frames pluck-frames))
     (define unpluck-frames-third (fxquotient unpluck-frames 3))
@@ -474,7 +486,7 @@
   (λ (frames tone*accent?)
     (match-define (cons tone accent?) tone*accent?)
     (define evolume (if accent? (fxmin 15 (fx+ 1 volume)) volume))
-    (define per (hash-ref PULSE tone))
+    (define per (pulse-tone->period tone))
     (define part-frames (fl->fx (flceiling (fl/ (fx->fl frames) (fx->fl how-many)))))
     (define-values (_ l)
       (for/fold ([remaining frames] [l empty])
@@ -491,13 +503,24 @@
     (define which (vector-ref which-v which-n))
     (ensure frames which)))
 
-(define (part->semicmds me p)
-  (match-define (cons instru notes) p)
+(define (part->semicmds me ts p)
+  (match-define (cons instru measures) p)
+  (define measure-frames (frames-in-bar me ts))
   ;; xxx it would be nice to remove this flatten
   (flatten
-   (for/list ([n*t (in-list notes)])
-     (match-define (cons note arg) n*t)
-     (instru (frames-in-note me note) arg))))
+   (for/list ([notes (in-list measures)])
+     (define-values (_ l)
+       (for/fold ([frames-remaining measure-frames] [l empty])
+                 ([n*t (in-list notes)])
+         (match-define (cons note arg) n*t)
+         ;; xxx it would be better if these were floats so we could do
+         ;; 17,16,17,16 by summing the remainder, rather than doing a
+         ;; single rounding in frames-in-note
+         (define note-frames
+           (fxmin frames-remaining (frames-in-note me note)))
+         (values (fx- frames-remaining note-frames)
+                 (cons (instru note-frames arg) l))))
+     (reverse l))))
 
 (define list-#f (list #f))
 (define (extend-with-#f v)
@@ -545,69 +568,265 @@
 (define (combine-parts part-semicmds)
   (apply-mapish combine-semicmds part-semicmds))
 
-(define (song->commands #:me me parts)
-  (combine-parts (map (λ (p) (part->semicmds me p)) parts)))
+(define (song->commands #:me me #:ts ts parts)
+  (combine-parts (map (λ (p) (part->semicmds me ts p)) parts)))
+
+(define example-song
+  (song->commands
+   #:me (cons 0.25 160)
+   #:ts ts:4:4
+   (list
+    (cons (i:pulse-plucky 0.25 2 8)
+          (list
+           (list (list* 0.25 'C4 #f)
+                 (list* 0.25 'E4 #t)
+                 (list* 0.25 'G4 #f)
+                 (list* 0.25 'A4 #f))))
+    (cons (i:pulse-slow-mod 16 2 4)
+          (list
+           (list (list* 0.25 'E4 #f)
+                 (list* 0.25 'G4 #f)
+                 (list* 0.25 'A4 #f)
+                 (list* 0.25 'C4 #t))))
+    (cons (i:triangle)
+          (list
+           (list (list* 0.25 'G3 #f)
+                 (list* 0.25 'A3 #f)
+                 (list* 0.25 'C3 #f)
+                 (list* 0.25 'E3 #f))))
+    (cons (i:drum (vector closed-hihat
+                          bass-drum
+                          snare-drum2))
+          (list
+           (list (cons 0.125 0)
+                 (cons 0.125 0)
+                 (cons 0.125 1)
+                 (cons 0.125 0)
+                 (cons 0.125 0)
+                 (cons 0.125 0)
+                 (cons 0.125 2)
+                 (cons 0.125 0)))))))
+
+(define (chorded-song->commands #:me me
+                                #:ts ts
+                                #:drum drum
+                                #:drum-measure dm
+                                #:instruments iv
+                                #:measures ms)
+  (song->commands
+   #:me me
+   #:ts ts
+   (append
+    (for/list ([i*o (in-vector iv)]
+               [in (in-naturals)])
+      (match-define (cons i inst-octave) i*o)
+      (cons i
+            (for/list ([m (in-list ms)])
+              (for/list ([n (in-list m)])
+                (match-define (list* note tones accent?) n)
+                (match-define (cons tone-name note-doctave) (list-ref tones in))
+                (define tone
+                  (string->symbol
+                   (format "~a~a" tone-name (+ inst-octave note-doctave))))
+                (list* note tone accent?)))))
+    (list (cons drum
+                (for/list ([m (in-list ms)]
+                           [i (in-naturals)])
+                  dm))))))
+
+(define libbys-song
+  (let ()
+    (define s
+      (scale-diatonic-major 'C))
+    (define base-octave 4)
+    (chorded-song->commands
+     #:me (cons 0.25 140)
+     #:ts ts:4:4
+     #:drum (i:drum (vector closed-hihat
+                            bass-drum
+                            snare-drum2))
+     #:drum-measure
+     (list (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 1)
+           (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 2)
+           (cons 0.125 0))
+     #:instruments
+     (vector (cons (i:pulse-plucky 0.25 2 8) (fx+ base-octave 2))
+             (cons (i:pulse-slow-mod 16 2 4) base-octave)
+             (cons (i:triangle) (fx- base-octave 2)))
+     #:measures
+     (list
+      ;; Line 1
+      (list
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 1) #t)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 2) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 3) #t))
+      (list
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 1) #t)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 2) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 3) #t))
+      (list
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 1) #t)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 2) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 3) #t))
+      ;; Line 2
+      (list
+       (list* 0.25 (octave-delta (chord-inversion (chord-seventh (mode s 0)) 0) 1) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 2) #t)
+       (list* 0.50 (chord-inversion (chord-seventh (mode s 0)) 0) #f))
+      (list
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 5)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 5)) 1) #t)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 2) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 3) #t))
+      (list
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 1) #t)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 1) #t))
+      ;; Line 3
+      (list
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 2) #t)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 2)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 2)) 2) #t))
+      (list
+       (list* 0.50 (chord-inversion (chord-seventh (mode s 5)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 2) #t)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 3) #f))
+      (list
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 0) #f)
+       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 1) #t)
+       (list* 0.50 (chord-inversion (chord-seventh (mode s 4)) 2) #f))))))
+
+(module+ test
+  (printf "0.75 is ~a\n"
+          (frames-in-note (cons 0.25 116) 0.75))
+  (printf "0.125 is ~a\n"
+          (frames-in-note (cons 0.25 116) 0.125))
+  (printf "6*0.125 is ~a\n"
+          (* 6 (frames-in-note (cons 0.25 116) 0.125))))
+
+(define 237:Do-What-Is-Right
+  (let ()
+    (define s
+      (scale-diatonic-major 'G))
+    (define base-octave 4)
+    (chorded-song->commands
+     #:me (cons 0.25 116)
+     #:ts ts:3:4
+     #:drum (i:drum (vector closed-hihat
+                            bass-drum
+                            snare-drum2))
+     #:drum-measure
+     (list (cons 0.125 2)
+           (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 0))
+     #:instruments
+     (vector (cons (i:pulse-plucky 0.25 2 8) (fx+ base-octave 1))
+             (cons (i:pulse-slow-mod 16 2 4) base-octave)
+             (cons (i:triangle) (fx- base-octave 1)))
+     #:measures
+     (let ()
+       (define phrase1
+         (list
+          ;; 1
+          (list
+           (list* 0.375 '((B . 0) (D . 0) (G . 0)) #f)
+           (list* 0.125 '((A . 0) (C . 0) (G . 0)) #f)
+           (list* 0.250 '((G . 0) (B . 0) (G . 0)) #f))
+          ;; 2
+          (list
+           (list* 0.500 '((B . 0) (D . 0) (G . 0)) #f)
+           (list* 0.250 '((G . 0) (B . 0) (G . 0)) #f))
+          ;; 3
+          (list
+           (list* 0.250 '((A . 0) (C . 0) (D . 0)) #f)
+           (list* 0.250 '((G . 0) (B . 0) (D . 0)) #f)
+           (list* 0.250 '((A . 0) (C . 0) (D . 0)) #f))
+          ;; 4
+          (list
+           (list* 0.250 '((B . 0) (D . 0) (G . 0)) #f)
+           (list* 0.500 '((G . 0) (B . 0) (G . 0)) #f))
+          ;; 5
+          (list
+           (list* 0.375 '((G . 0) (E . 0) (C . 0)) #f)
+           (list* 0.125 '((F# . 0) (D . 0) (C . 0)) #f)
+           (list* 0.250 '((E . 0) (C . 0) (C . 0)) #f))
+          ;; 6
+          (list
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f)
+           (list* 0.250 '((G . 0) (B . 0) (G . 0)) #f)
+           (list* 0.250 '((B . 0) (D . 0) (G . 0)) #f))
+          ;; 7
+          (list
+           (list* 0.375 '((A . 0) (C . 0) (D . 0)) #f)
+           (list* 0.125 '((G . 0) (B . 0) (D . 0)) #f)
+           (list* 0.250 '((A . 0) (C . 0) (D . 0)) #f))
+          ;; 8
+          (list
+           (list* 0.750 '((G . 0) (B . 0) (G . 0)) #f))))
+       (define phrase2
+         (list
+          ;; 1
+          (list
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f)
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f)
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f))
+          ;; 2
+          (list
+           (list* 0.250 '((E . 0) (C . 0) (G . 0)) #f)
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f)
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f))
+          ;; 3
+          (list
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f)
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f)
+           (list* 0.250 '((D . 0) (B . 0) (G . 0)) #f))
+          ;; 4
+          (list
+           (list* 0.250 '((E . 0) (C . 0) (G . 0)) #f)
+           (list* 0.500 '((D . 0) (B . 0) (G . 0)) #f))
+          ;; 5
+          (list
+           (list* 0.250 '((D . 0) (B . 0) (G . 1)) #f)
+           (list* 0.250 '((G . 0) (B . 0) (G . 1)) #f)
+           (list* 0.250 '((B . 0) (D . 0) (G . 1)) #f))
+          ;; 6
+          (list
+           (list* 0.250 '((D . 1) (D . 0) (G . 1)) #f)
+           (list* 0.250 '((B . 0) (D . 0) (G . 1)) #f)
+           (list* 0.250 '((G . 0) (D . 0) (G . 0)) #f))
+          ;; 7
+          (list
+           (list* 0.125 '((F# . 0) (D . 0) (A . 0)) #f)
+           (list* 0.375 '((A . 0) (C# . 0) (A . 0)) #f)
+           (list* 0.250 '((C# . 0) (A . 0) (A . 0)) #f))
+          ;; 8
+          (list
+           (list* 0.750 '((D . 0) (A . 0) (D . 0)) #f))))
+       (append phrase1
+               phrase1
+               phrase2
+               phrase1)))))
 
 (define main-track
   (cmd:repeat
-   (cons
-    (song->commands
-     #:me (cons 0.25 160)
-     (list
-      (cons (i:pulse-plucky 0.25 2 8)
-            (list (list* 0.25 'C4 #f)
-                  (list* 0.25 'E4 #t)
-                  (list* 0.25 'G4 #f)
-                  (list* 0.25 'A4 #f)))
-      (cons (i:pulse-slow-mod 16 2 4)
-            (list (list* 0.25 'E4 #f)
-                  (list* 0.25 'G4 #f)
-                  (list* 0.25 'A4 #f)
-                  (list* 0.25 'C4 #t)))
-      (cons (i:triangle)
-            (list (cons 0.25 'G3)
-                  (cons 0.25 'A3)
-                  (cons 0.25 'C3)
-                  (cons 0.25 'E3)))
-      (cons (i:drum (vector closed-hihat
-                            bass-drum
-                            snare-drum2))
-            (list (cons 0.125 0)
-                  (cons 0.125 0)
-                  (cons 0.125 1)
-                  (cons 0.125 0)
-                  (cons 0.125 0)
-                  (cons 0.125 0)
-                  (cons 0.125 2)
-                  (cons 0.125 0)))))
-    (song->commands
-     #:me (cons 0.25 160)
-     (list
-      (cons (i:pulse-plucky 0.25 2 8)
-            (list (list* 0.25 'C4 #f)
-                  (list* 0.25 'Eb4 #t)
-                  (list* 0.25 'Gb4 #f)
-                  (list* 0.25 'A4 #f)))
-      (cons (i:pulse-slow-mod 16 2 4)
-            (list (list* 0.25 'Eb4 #f)
-                  (list* 0.25 'Gb4 #f)
-                  (list* 0.25 'A4 #f)
-                  (list* 0.25 'C4 #t)))
-      (cons (i:triangle)
-            (list (cons 0.25 'Gb3)
-                  (cons 0.25 'A3)
-                  (cons 0.25 'C3)
-                  (cons 0.25 'Eb3)))
-      (cons (i:drum (vector closed-hihat
-                            bass-drum
-                            snare-drum2))
-            (list (cons 0.125 0)
-                  (cons 0.125 0)
-                  (cons 0.125 1)
-                  (cons 0.125 0)
-                  (cons 0.125 0)
-                  (cons 0.125 0)
-                  (cons 0.125 2)
-                  (cons 0.125 0))))))))
+   237:Do-What-Is-Right))                                 
+
+;; xxx libby thinks i should pick a melody chord progression, then
+;; adapt the harmony, then adapt the bass and that the bass should
+;; play a small number of different notes (like 3) that are only the
+;; (0,3,4) of the chords
 
 (provide main-track)

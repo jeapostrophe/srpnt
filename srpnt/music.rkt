@@ -14,12 +14,11 @@
              (or rd off-wave:dmc)))
 (define (cmd:hold* frames c)
   (for/list ([f (in-range frames)])
-     c))
+    c))
 (define (cmd:hold*f frames cf)
   (for/list ([f (in-range frames)])
-     (cf f)))
+    (cf f)))
 
-;; xxx move to "music"
 (define-runtime-path keys-path "keys.txt")
 (define-values (PULSE TRIANGLE)
   (let ()
@@ -43,7 +42,7 @@
           (cons (pulse-freq->period f)
                 (triangle-freq->period f))))
       (for ([p (in-list periods)]
-            [octave (in-range 7)])
+            [octave (in-naturals)])
         (match-define (cons pul tri) p)
         (define semitone (+ (- (* octave 12) (* 4 12)) row))
         (define stn semitone)
@@ -59,6 +58,15 @@
             (hash-set! TRIANGLE no tri)))))
     (values PULSE TRIANGLE)))
 
+(define (pulse-tone->period tone)
+  (hash-ref PULSE tone
+            (λ () (error 'pulse-tone->period "The pulse can't play ~v\n"
+                         tone))))
+(define (triangle-tone->period tone)
+  (hash-ref TRIANGLE tone
+            (λ () (error 'triangle-tone->period "The triangle can't play ~v\n"
+                         tone))))
+
 (provide
  pulse-freq->period
  triangle-freq->period
@@ -70,5 +78,5 @@
  cmd:frame*
  cmd:hold*
  cmd:hold*f
- PULSE
- TRIANGLE)
+ pulse-tone->period
+ triangle-tone->period)
