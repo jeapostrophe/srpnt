@@ -128,13 +128,7 @@
  (struct-out cmd:frame)
  (struct-out cmd:repeat))
 
-(define (play! song-p
-               #:log-p [log-p #f])
-  (printf "starting...\n")
-  (define m
-    (if log-p
-        (logging&playing-mixer log-p)
-        (playing-mixer)))
+(define (play-to! m init-c)
   (define (play-cmd init-c)
     (define s (make-synth))
     (let loop ([c init-c])
@@ -150,6 +144,22 @@
            (repeat))]
         [(cmd:frame p1 p2 t n ld rd)
          (synth-step! m s p1 p2 t n ld rd)])))
+  (play-cmd init-c))
+
+(define (play-one! init-c)
+  (define m (playing-mixer))
+  (play-to! m init-c)
+  (mixer-close! m))
+
+(provide play-one!)
+
+(define (play! song-p
+               #:log-p [log-p #f])
+  (printf "starting...\n")
+  (define m
+    (if log-p
+        (logging&playing-mixer log-p)
+        (playing-mixer)))
 
   (let loop ()
     (printf "Loading ~a\n" song-p)
@@ -161,7 +171,7 @@
          (define init-c
            (parameterize ([current-namespace ns])
              (dynamic-require `(file ,song-p) 'main-track)))
-         (play-cmd init-c))))
+         (play-to! m init-c))))
     (define song-p-evt
       (filesystem-change-evt song-p))
     (sync song-p-evt player-t)
