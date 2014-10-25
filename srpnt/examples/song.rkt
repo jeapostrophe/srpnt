@@ -509,6 +509,7 @@
   ;; xxx it would be nice to remove this flatten
   (flatten
    (for/list ([notes (in-list measures)])
+     ;; xxx check that all frames are consumed
      (define-values (_ l)
        (for/fold ([frames-remaining measure-frames] [l empty])
                  ([n*t (in-list notes)])

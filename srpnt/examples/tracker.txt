@@ -1,0 +1,26 @@
+Base Unit:
+0.125
+
+TS: 3/4
+
+General parameters:
+- means use the previous value from above
+< means use the previous value from the track to the left
+
+Pulse parameters:
+N I TT O V = Note, Instrument, Tone, Octave, Volume
+
+Triangle parameters:
+N I TT O = Note, Instrument, Tone, Octave
+
+Pulse1    Pulse2    Tri
+- 0 -- 5 4|- 1 -- 4 8|- 2 -- 3|
+**********|**********|********|
+3 - B  - -|< - D  - -|< G  - -|
+1 - A  - -|< - C  - -|< G  - -|
+2 - G  - -|< - B  - -|< G  - -|
+**********|**********|********|
+4 - B  - -|< - D  - -|< G  - -|
+2 - G  - -|< - B  - -|< G  - -|
+**********|**********|********|
+
