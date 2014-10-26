@@ -435,13 +435,16 @@
 ;; xxx select accent pattern
 ;; xxx select form (with lengths)
 ;; xxx select chord progression
+;; xxx select bass notes (or always use 0,3,4?)
 
 ;; per part
 ;; xxx select chord progression division
 
 ;; per chord phrase / measure
 ;; xxx select rhythm (needs to be compatible with accent pattern/time sig)
-;; xxx select chord note sequence
+;; xxx select chord note sequence of melody
+;; xxx select matching notes of harmony
+;; xxx select matching notes of bass
 
 ;; per play
 ;; xxx select scale
