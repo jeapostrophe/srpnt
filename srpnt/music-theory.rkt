@@ -213,8 +213,6 @@
   (check-equal? (chord-triad (scale-diatonic-major 'C))
                 '((C . 0) (E . 0) (G . 0))))
 
-
-
 (define (chord-seventh scale-tones)
   (list-read scale-tones '(2 2 2 0)))
 (module+ test
