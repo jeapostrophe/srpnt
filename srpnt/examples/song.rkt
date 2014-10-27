@@ -434,3 +434,6 @@
    libbys-song))
 
 (provide main-track)
+
+;; (module+ main
+;;   (play-one! (cmd:repeat (composition->track (bithoven)))))

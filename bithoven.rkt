@@ -31,69 +31,73 @@
 (struct form (name part-lens pattern) #:transparent)
 (define (select-form)
   (select-from-list
-   (list (form "strophic"
-               '((A . 1))
-               '(A A A A))
-         (form "medley"
-               '((A . 1) (B . 1) (C . 1) (D . 1))
-               '(A B C D))
-         (form "double medley"
-               '((A . 1) (B . 1) (C . 1) (D . 1))
-               '(A A B B C C D D))
-         (form "binary"
-               '((A . 1) (B . 1))
-               '(A B))
-         (form "double binary"
-               '((A . 1) (B . 1))
-               '(A A B B))
-         (form "repeated binary"
-               '((A . 1) (B . 1))
-               '(A B A B))
-         (form "ternary"
-               '((A . 1) (B . 1))
-               '(A B A))
-         (form "repeated ternary"
-               '((A . 1) (B . 1))
-               '(A A B A))
-         (form "asym rondo"
-               '((A . 1) (B . 1) (C . 1) (D . 1) (E . 1))
-               '(A B A C A D A E A))
-         (form "sym rondo"
-               '((A . 1) (B . 1) (C . 1))
-               '(A B A C A B A))
-         (form "sym rondo"
-               '((A . 1) (B . 1) (C . 1))
-               '(A B A C A B A))
-         (form "arch"
-               '((A . 1) (B . 1) (C . 1))
-               '(A B C B A))
-         (form "typical pop"
-               '((I . 1) (V . 1) (C . 1) (M8 . 2) (O . 1))
-               '(I V C V C M8 C C O))
-         (form "32-bar"
-               '((A . 2) (B . 2))
-               '(A A B A))
-         (form "AAA"
-               '((A . 1))
-               '(A A A))
-         (form "ABABCB"
-               '((A . 1) (B . 1) (C . 1))
-               '(A B A B C B))
-         (form "ABABCAB"
-               '((A . 1) (B . 1) (C . 1))
-               '(A B A B C A B))
-         (form "ABABCBAB"
-               '((A . 1) (B . 1) (C . 1))
-               '(A B A B C B A B))
-         (form "ABABCABCAB"
-               '((A . 1) (B . 1) (C . 1))
-               '(A B A B C A B C A B)))))
+   (list
+    ;; xxx maybe bad because i loop no matter what
+    (form "strophic"
+          '((A . 1))
+          '(A A A A))
+    (form "medley"
+          '((A . 1) (B . 1) (C . 1) (D . 1))
+          '(A B C D))
+    (form "double medley"
+          '((A . 1) (B . 1) (C . 1) (D . 1))
+          '(A A B B C C D D))
+    (form "binary"
+          '((A . 1) (B . 1))
+          '(A B))
+    (form "double binary"
+          '((A . 1) (B . 1))
+          '(A A B B))
+    (form "repeated binary"
+          '((A . 1) (B . 1))
+          '(A B A B))
+    (form "ternary"
+          '((A . 1) (B . 1))
+          '(A B A))
+    (form "repeated ternary"
+          '((A . 1) (B . 1))
+          '(A A B A))
+    (form "asym rondo"
+          '((A . 1) (B . 1) (C . 1) (D . 1) (E . 1))
+          '(A B A C A D A E A))
+    (form "sym rondo"
+          '((A . 1) (B . 1) (C . 1))
+          '(A B A C A B A))
+    (form "sym rondo"
+          '((A . 1) (B . 1) (C . 1))
+          '(A B A C A B A))
+    (form "arch"
+          '((A . 1) (B . 1) (C . 1))
+          '(A B C B A))
+    (form "typical pop"
+          '((I . 1) (V . 1) (C . 1) (M8 . 2) (O . 1))
+          '(I V C V C M8 C C O))
+    (form "32-bar"
+          '((A . 2) (B . 2))
+          '(A A B A))
+    ;; xxx maybe i don't want this one because I loop anyways
+    (form "AAA"
+          '((A . 1))
+          '(A A A))
+    (form "ABABCB"
+          '((A . 1) (B . 1) (C . 1))
+          '(A B A B C B))
+    (form "ABABCAB"
+          '((A . 1) (B . 1) (C . 1))
+          '(A B A B C A B))
+    (form "ABABCBAB"
+          '((A . 1) (B . 1) (C . 1))
+          '(A B A B C B A B))
+    (form "ABABCABCAB"
+          '((A . 1) (B . 1) (C . 1))
+          '(A B A B C A B C A B)))))
 
 (struct progression (seq) #:transparent)
-;; Should look at https://en.wikipedia.org/wiki/List_of_chord_progressions
+;; xxx Should look at https://en.wikipedia.org/wiki/List_of_chord_progressions
 ;; From https://en.wikipedia.org/wiki/Chord_progression
 
 ;; xxx can't select one that is longer than notes/accents in part
+;; xxx i should change this to allow me to write it roman numeral analysis
 (define (select-chord-progression)
   (select-from-list
    (list
@@ -244,20 +248,22 @@
       (define chord-track
         (for/list ([chord (in-list cp-s)]
                    [rhythm (in-list chord-rhythm)])
+          ;; xxx don't always do triad?
           (define tones (chord-triad (mode scale chord)))
           (vector chord tones
                   (for/list ([r (in-list rhythm)])
                     (define melody (select-from-list tones))
                     (define harmony (select-from-list tones))
-                    (define bass
-                      (select-from-list
-                       (filter (λ (t)
-                                 (memf (λ (ct) (eq? (car ct) (car t)))
-                                       tones))
-                               btones)))
-                    (unless bass
+                    (define allowed-bass-notes
+                      (filter (λ (t)
+                                (memf (λ (ct) (eq? (car ct) (car t)))
+                                      tones))
+                              btones))
+                    (when (empty? allowed-bass-notes)
                       (error 'bithoven "No bass tone was found in ~v for ~v"
                              btones tones))
+                    (define bass
+                      (select-from-list allowed-bass-notes))
                     (vector r melody harmony bass)))))
       (vector label
               pd
@@ -270,3 +276,5 @@
 (module+ test
   (require racket/pretty)
   (pretty-print (bithoven)))
+
+(provide bithoven)
