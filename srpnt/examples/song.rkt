@@ -177,11 +177,11 @@
      (cmd:hold* pluck-frames
                 (wave:pulse duty per evolume))
      (cmd:hold* unpluck-frames-third
-                (wave:pulse (fx- duty 1) per evolume))
+                (wave:pulse (fxmax 0 (fx- duty 1)) per evolume))
      (cmd:hold* unpluck-frames-third
-                (wave:pulse (fx- duty 1) per (fxquotient evolume 2)))
+                (wave:pulse (fxmax 0 (fx- duty 1)) per (fxquotient evolume 2)))
      (cmd:hold* unpluck-frames-final-third
-                (wave:pulse (fx- duty 1) per (fxquotient evolume 4))))))
+                (wave:pulse (fxmax 0 (fx- duty 1)) per (fxquotient evolume 4))))))
 
 (define (i:pulse-slow-mod how-many duty volume)
   (λ (frames tone*accent?)
@@ -196,15 +196,14 @@
          (fx- remaining part-frames)
          (cons l
                (cmd:hold* (fxmin remaining part-frames)
-                          (wave:pulse (if (even? n) duty (fx- duty 1)) per evolume))))))
+                          (wave:pulse (fxmax 0 (if (even? n) duty (fx- duty 1)))
+                                      per evolume))))))
     l))
 
 (define (i:drum which-v)
   (λ (frames which-n)
     (define which (vector-ref which-v which-n))
     (cmd:ensure frames which)))
-
-
 
 (define example-song
   (song->commands
@@ -436,40 +435,45 @@
   (match-define (vector ts pattern parts) c)
   (let ()
     ;; xxx choose this
-    (define base-octave (+ 2 (random 3)))
+    (define base-octave (+ 2 (random 2)))
+     ;; xxx select this
     (define tempo
+      140
+      #;
       (select-from-list
        '(300 180 170 160 140 135 118 120 115 80 200 280 45)))
     (printf "Tempo is ~v\n" tempo)
     (chorded-song->commands
      #:me
-     ;; xxx select this
      (cons 0.25 tempo)
      #:ts ts
      #:drum
      ;; xxx generate this
-     (i:drum (vector closed-hihat
+     (i:drum (vector (select-from-list (list closed-hihat
+                                             open-hihat
+                                             loose-hihat))
                      bass-drum
-                     snare-drum2))
+                     (select-from-list (list snare-drum1
+                                             snare-drum2))))
      #:drum-measure
      ;; xxx generate this
      (list (cons 0.125 0)
            (cons 0.125 0)
-           (cons 0.125 1)
+           (cons 0.125 (+ 1 (random 2)))
            (cons 0.125 0)
            (cons 0.125 0)
            (cons 0.125 0)
-           (cons 0.125 2)
+           (cons 0.125 (+ 1 (random 2)))
            (cons 0.125 0))
      #:instruments
      ;; xxx generate this
      (vector (cons (if (zero? (random 2))
-                       (i:pulse 2 6)
-                       (i:pulse-plucky 0.25 2 6))
+                       (i:pulse (+ 1 (random 2)) 6)
+                       (i:pulse-plucky 0.25 (+ 1 (random 2)) 6))
                    (fx+ base-octave 1))
              (cons (if (zero? (random 2))
-                       (i:pulse 2 6)
-                       (i:pulse-slow-mod 16 2 6))
+                       (i:pulse (+ 1 (random 2)) 6)
+                       (i:pulse-slow-mod 16 (+ 1 (random 2)) 6))
                    base-octave)
              (cons (i:triangle) (fx- base-octave 2)))
      #:measures
