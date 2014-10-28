@@ -57,30 +57,34 @@
 (module+ test
   (check-equal? (frames-in-bar (cons 0.25 60) (cons 4 0.25)) 240))
 
+(define remainder->rhythms
+  (make-hash))
+(define (notes-divisions bar)
+  (hash-ref! remainder->rhythms
+             bar
+             (λ ()
+               (if (fl<= bar 0.0)
+                   (list empty)
+                   (append*
+                    (for/list ([n (in-vector notes)])
+                      (if (fl<= n bar)
+                          (map (λ (l) (cons n l))
+                               (notes-divisions (fl- bar n)))
+                          empty)))))))
+
 (define (ordered-bar-divisions ts)
-  (define remainder->rhythms
-    (make-hash))
-  (define (divide bar)
-    (hash-ref! remainder->rhythms
-               bar
-               (λ ()
-                 (if (fl<= bar 0.0)
-                     (list empty)
-                     (append*
-                      (for/list ([n (in-vector notes)])
-                        (if (fl<= n bar)
-                            (map (λ (l) (cons n l))
-                                 (divide (fl- bar n)))
-                            empty)))))))
-  (divide (notes-in-bar ts)))
+  (notes-divisions (notes-in-bar ts)))
 (module+ test
   (length (ordered-bar-divisions ts:4:4)))
 
-(define (bar-divisions ts)
+(define (all-notes-divisions nds)
   (append*
    (map (λ (td)
           (remove-duplicates (permutations td)))
-        (ordered-bar-divisions ts))))
+        nds)))
+
+(define (bar-divisions ts)
+  (all-notes-divisions (ordered-bar-divisions ts)))
 (module+ test
   (length (bar-divisions ts:4:4)))
 

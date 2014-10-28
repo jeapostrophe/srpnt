@@ -7,6 +7,7 @@
 
 (define (select-from-list l)
   (list-ref l (random (length l))))
+(provide select-from-list)
 
 (struct time-sig (name ts) #:transparent)
 (define time-sig/ts:4:4 (time-sig "4/4" ts:4:4))
@@ -32,10 +33,9 @@
 (define (select-form)
   (select-from-list
    (list
-    ;; xxx maybe bad because i loop no matter what
     (form "strophic"
           '((A . 1))
-          '(A A A A))
+          '(A))
     (form "medley"
           '((A . 1) (B . 1) (C . 1) (D . 1))
           '(A B C D))
@@ -48,9 +48,6 @@
     (form "double binary"
           '((A . 1) (B . 1))
           '(A A B B))
-    (form "repeated binary"
-          '((A . 1) (B . 1))
-          '(A B A B))
     (form "ternary"
           '((A . 1) (B . 1))
           '(A B A))
@@ -75,10 +72,6 @@
     (form "32-bar"
           '((A . 2) (B . 2))
           '(A A B A))
-    ;; xxx maybe i don't want this one because I loop anyways
-    (form "AAA"
-          '((A . 1))
-          '(A A A))
     (form "ABABCB"
           '((A . 1) (B . 1) (C . 1))
           '(A B A B C B))
@@ -209,9 +202,35 @@
 
 ;; xxx select rhythm (needs to be compatible with accent pattern/time sig)
 (define (select-rhythm ts notes)
-  ;; xxx assuming 4/4
-  (for/list ([i (in-range notes)])
-    0.250))
+  ;; xxx ignoring ts/ap
+  (select-from-list
+   (list
+    (for/list ([k (in-range notes)])
+      0.250)
+    #;
+    (let ()
+    (define minimum-note 0.125)
+    (define-values (rem l)
+    (for/fold ([remaining (* 0.250 notes)]
+    [l empty])
+    ([k (in-range notes)])
+    (define maximum-note
+    (- remaining (* minimum-note (sub1 (- notes k)))))
+    '(printf "MIN ~v REM ~v K ~v NS ~v MAX ~v\n"
+    minimum-note remaining k notes maximum-note)
+    (define this
+    (if (= k (sub1 notes))
+    remaining
+    (select-from-list
+    (filter (λ (n) (<= n maximum-note))
+    (list 1.000 0.875 0.750 0.625
+    0.500 0.375 0.250 0.125)))))
+    (values (- remaining this)
+    (cons this l))))
+    (unless (zero? rem)
+    (error 'select-rhythm "Failed to use all notes: ~v vs ~v"
+    rem l))
+    l))))
 
 ;; xxx select chord note sequence of melody
 ;; xxx select matching notes of harmony
@@ -219,6 +238,14 @@
 
 ;; per play
 ;; xxx select bpm
+
+(define (split-into-measures ts ns)
+  ;; xxx generalize
+  (let loop ([ns ns])
+    (match ns
+      [(list* a b c d more)
+       (cons (list a b c d) (loop more))]
+      ['() '()])))
 
 (define (bithoven)
   ;; xxx really a play parameter
@@ -234,44 +261,56 @@
   (define btones
     (for/list ([bn (in-list bns)])
       (first (chord-triad (mode scale bn)))))
+  (printf "~v\n"
+          (vector scale-kind scale-root f cp))
+  ;; xxx ensure that there can always be at least 1 beat per chord in
+  ;; progression (i.e. compute the minimum measures and round up then
+  ;; take the minimum of these two computations)
+  (define measures-per-part
+    (let ()
+      (define pat-length (length (form-pattern f)))
+      (cond
+       [(< pat-length 3) 4]
+       [(< pat-length 5) 2]
+       [else 1])))
   (define parts
-    (for/list ([p (in-list (form-part-lens f))])
+    (for/hasheq ([p (in-list (form-part-lens f))])
       (match-define (cons label len) p)
       (define pd (select-progress-divison (length cp-s)))
-      ;; xxx could use the length of the progression instead of 4
-      (define notes (* len 4 (length (accent-pattern-accents ap))))
+      (define notes (* len measures-per-part (length (accent-pattern-accents ap))))
       (define chord-notes
         (apply-factors-and-ensure-sum notes pd))
+      ;; xxx ensure chord-notes contains no 0s
       (define chord-rhythm
         (for/list ([c (in-list chord-notes)])
           (select-rhythm ts c)))
+      (printf "Rhythm: ~v x ~v => ~v\n" ts chord-notes chord-rhythm)
       (define chord-track
-        (for/list ([chord (in-list cp-s)]
-                   [rhythm (in-list chord-rhythm)])
-          ;; xxx don't always do triad?
-          (define tones (chord-triad (mode scale chord)))
-          (vector chord tones
-                  (for/list ([r (in-list rhythm)])
-                    (define melody (select-from-list tones))
-                    (define harmony (select-from-list tones))
-                    (define allowed-bass-notes
-                      (filter (λ (t)
-                                (memf (λ (ct) (eq? (car ct) (car t)))
-                                      tones))
-                              btones))
-                    (when (empty? allowed-bass-notes)
-                      (error 'bithoven "No bass tone was found in ~v for ~v"
-                             btones tones))
-                    (define bass
-                      (select-from-list allowed-bass-notes))
-                    (vector r melody harmony bass)))))
-      (vector label
-              pd
-              notes
-              chord-notes
-              chord-rhythm
+        (split-into-measures
+         ts
+         (append*
+          (for/list ([chord (in-list cp-s)]
+                     [rhythm (in-list chord-rhythm)])
+            ;; xxx don't always do triad?
+            (define tones (chord-triad (mode scale chord)))
+            (for/list ([r (in-list rhythm)])
+              (define melody (select-from-list tones))
+              (define harmony (select-from-list tones))
+              (define allowed-bass-notes
+                (filter (λ (t)
+                          (memf (λ (ct) (eq? (car ct) (car t)))
+                                tones))
+                        btones))
+              (when (empty? allowed-bass-notes)
+                (error 'bithoven "No bass tone was found in ~v for ~v"
+                       btones tones))
+              (define bass
+                (select-from-list allowed-bass-notes))
+              ;; xxx correct accent
+              (list* r (list melody harmony bass) #f))))))
+      (values label
               chord-track)))
-  (vector scale-kind scale-root ts ap f cp bns btones parts))
+  (vector (time-sig-ts ts) (form-pattern f) parts))
 
 (module+ test
   (require racket/pretty)

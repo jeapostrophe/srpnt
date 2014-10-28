@@ -428,12 +428,62 @@
                phrase2
                phrase1)))))
 
+(require "../../bithoven.rkt")
+(define (composition->track c)
+  (let ()
+    (local-require racket/pretty)
+    (pretty-print c))
+  (match-define (vector ts pattern parts) c)
+  (let ()
+    ;; xxx choose this
+    (define base-octave (+ 2 (random 3)))
+    (define tempo
+      (select-from-list
+       '(300 180 170 160 140 135 118 120 115 80 200 280 45)))
+    (printf "Tempo is ~v\n" tempo)
+    (chorded-song->commands
+     #:me
+     ;; xxx select this
+     (cons 0.25 tempo)
+     #:ts ts
+     #:drum
+     ;; xxx generate this
+     (i:drum (vector closed-hihat
+                     bass-drum
+                     snare-drum2))
+     #:drum-measure
+     ;; xxx generate this
+     (list (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 1)
+           (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 0)
+           (cons 0.125 2)
+           (cons 0.125 0))
+     #:instruments
+     ;; xxx generate this
+     (vector (cons (if (zero? (random 2))
+                       (i:pulse 2 6)
+                       (i:pulse-plucky 0.25 2 6))
+                   (fx+ base-octave 1))
+             (cons (if (zero? (random 2))
+                       (i:pulse 2 6)
+                       (i:pulse-slow-mod 16 2 6))
+                   base-octave)
+             (cons (i:triangle) (fx- base-octave 2)))
+     #:measures
+     (append*
+      (for/list ([p (in-list pattern)])
+        (hash-ref parts p))))))
+
+(module+ main
+  (play-one! (cmd:repeat (composition->track (bithoven)))))
 
 (define main-track
   (cmd:repeat
-   libbys-song))
+   (composition->track (bithoven))
+   #;237:Do-What-Is-Right
+   #;libbys-song))
 
 (provide main-track)
-
-;; (module+ main
-;;   (play-one! (cmd:repeat (composition->track (bithoven)))))
