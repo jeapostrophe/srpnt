@@ -477,6 +477,7 @@
                                                  snare-drum2))))
          (i:drum (vector #f #f #f)))
      #:drum-measure
+     ;; http://en.wikipedia.org/wiki/Drum_beat
      ;; xxx generate this
      (select-from-list
       (list

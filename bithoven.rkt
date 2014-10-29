@@ -1,5 +1,7 @@
 #lang racket/base
 (require racket/list
+         racket/fixnum
+         racket/flonum
          racket/match
          srpnt/music-theory)
 (module+ test
@@ -14,17 +16,20 @@
 (define (select-time-sig)
   (select-from-list (list time-sig/ts:4:4)))
 
-(struct accent-pattern (name accents) #:transparent)
+(struct accent-pattern (name pulses-per-measure accents) #:transparent)
 (define (select-accent-pattern ts)
   (select-from-list
    (hash-ref
     (hash
      time-sig/ts:4:4
-     (list (accent-pattern "standard"     '(#t #f #f #f))
-           (accent-pattern "on-beats"     '(#t #f #t #f))
-           (accent-pattern "off-beats"    '(#f #t #f #t))
-           (accent-pattern "on-off-beats" '(#t #f #t #f #f #t #f #t))))
+     (list (accent-pattern "standard"  1 '(#t #f #f #f))
+           (accent-pattern "on-beats"  2 '(#t #f #t #f))
+           (accent-pattern "off-beats" 2 '(#f #t #f #t))))
     ts)))
+
+(define (accent-pattern-notes-per-pulse ap)
+  (match-define (accent-pattern _ ppm as) ap)
+  (/ (length as) ppm))
 
 ;; xxx https://en.wikipedia.org/wiki/Musical_form#Levels_of_organization
 
@@ -94,14 +99,6 @@
 (define (select-chord-progression)
   (select-from-list
    (list
-    ;; simple
-    ;; (progression '(0))
-    ;; (progression '(1))
-    ;; (progression '(2))
-    ;; (progression '(3))
-    ;; (progression '(4))
-    ;; (progression '(5))
-    ;; (progression '(6))
     ;; three chord
     (progression '(0 3 4 4))
     (progression '(0 0 3 4))
@@ -175,28 +172,31 @@
         (error 'select-progress-divison "Division didn't sum to 1: ~v" l))
       l))))
 
-(define (apply-factors-and-ensure-sum total l)
-  (define-values (_ result)
-    (for/fold ([off 0] [l empty])
-              ([cd (in-list l)])
-      (define n (* cd total))
-      (define nr (ceiling n))
-      (cond
-       [(= n nr)
-        (values off (cons nr l))]
-       [else
-        (define rn (+ (* cd total) off))
-        (define rnr (ceiling rn))
-        (define diff (- rn rnr))
-        (values diff (cons rnr l))])))
-  (unless (= total (sum result))
+(define (apply-factors-and-ensure-sum total factors)
+  (define-values (_rem _frag rresult)
+    (for/fold ([rem total] [frag 0.0] [l empty])
+              ([cd (in-list factors)]
+               [i (in-naturals)])
+      (define en (fl+ frag (exact->inexact (* cd total))))
+      (define an (flmax 1.0 (flfloor en)))
+      (define n
+        (if (fx= i (fx- (length factors) 1))
+            rem
+            (fl->fx an)))
+      (values (fx- rem n)
+              (fl- en an)
+              (cons n l))))
+  (define result (reverse rresult))
+  (unless (fx= total (sum result))
     (error 'apply-factors-and-ensure-sum
            "Inaccurate rounding (sum ~a) = ~a should be ~a"
            result (sum result) total))
   result)
 (module+ test
   (check-equal? (apply-factors-and-ensure-sum 16 '(1/3 1/3 1/3))
-                '(5 5 6)))
+                '(5 5 6))
+  (check-equal? (apply-factors-and-ensure-sum 4 '(1/6 1/6 7/12 1/12))
+                '(1 1 1 1)))
 
 ;; per chord phrase / measure
 
@@ -204,33 +204,34 @@
 (define (select-rhythm ts notes)
   ;; xxx ignoring ts/ap
   (select-from-list
-   (list
-    (for/list ([k (in-range notes)])
-      0.250)
-    #;
-    (let ()
-    (define minimum-note 0.125)
-    (define-values (rem l)
-    (for/fold ([remaining (* 0.250 notes)]
-    [l empty])
-    ([k (in-range notes)])
-    (define maximum-note
-    (- remaining (* minimum-note (sub1 (- notes k)))))
-    '(printf "MIN ~v REM ~v K ~v NS ~v MAX ~v\n"
-    minimum-note remaining k notes maximum-note)
-    (define this
-    (if (= k (sub1 notes))
-    remaining
-    (select-from-list
-    (filter (λ (n) (<= n maximum-note))
-    (list 1.000 0.875 0.750 0.625
-    0.500 0.375 0.250 0.125)))))
-    (values (- remaining this)
-    (cons this l))))
-    (unless (zero? rem)
-    (error 'select-rhythm "Failed to use all notes: ~v vs ~v"
-    rem l))
-    l))))
+   (if #t
+       (list
+        (for/list ([k (in-range notes)])
+          0.250))
+       (list
+        (let ()
+          (define minimum-note 0.125)
+          (define-values (rem l)
+            (for/fold ([remaining (* 0.250 notes)]
+                       [l empty])
+                      ([k (in-range notes)])
+              (define maximum-note
+                (- remaining (* minimum-note (sub1 (- notes k)))))
+              '(printf "MIN ~v REM ~v K ~v NS ~v MAX ~v\n"
+                minimum-note remaining k notes maximum-note)
+              (define this
+                (if (= k (sub1 notes))
+                    remaining
+                    (select-from-list
+                     (filter (λ (n) (<= n maximum-note))
+                             (list 1.000 0.875 0.750 0.625
+                                   0.500 0.375 0.250 0.125)))))
+              (values (- remaining this)
+                      (cons this l))))
+          (unless (zero? rem)
+            (error 'select-rhythm "Failed to use all notes: ~v vs ~v"
+                   rem l))
+          l)))))
 
 ;; xxx select chord note sequence of melody
 ;; xxx select matching notes of harmony
@@ -260,28 +261,42 @@
       (first (chord-triad (mode scale bn)))))
   (printf "~v\n"
           (vector f cp))
-  ;; xxx ensure that there can always be at least 1 beat per chord in
-  ;; progression (i.e. compute the minimum measures and round up then
-  ;; take the minimum of these two computations)
   (define measures-per-part
-    (let ()
-      (define pat-length (length (form-pattern f)))
-      (cond
-       [(< pat-length 3) 4]
-       [(< pat-length 5) 2]
-       [else 1])))
+    (*
+     ;; Every chord has to get one pulse at least (thus division) and
+     ;; we need a balance of measures (thus ceiling)
+     (let ()
+       (ceiling
+        (/ (length cp-s)
+           (accent-pattern-pulses-per-measure ap))))
+     ;; If a form is long, then don't make each part long
+     (let ()
+       (define pat-length (length (form-pattern f)))
+       (cond
+        [(< pat-length 3) 4]
+        [(< pat-length 5) 2]
+        [else 1]))))
   (define parts
     (for/hasheq ([p (in-list (form-part-lens f))])
       (match-define (cons label len) p)
-      (define pd (select-progress-divison (length cp-s)))
-      (define notes (* len measures-per-part (length (accent-pattern-accents ap))))
-      (define chord-notes
-        (apply-factors-and-ensure-sum notes pd))
-      ;; xxx ensure chord-notes contains no 0s
+      (define pd (select-progress-divison (length cp-s)))      
+      (for ([a-pd (in-list pd)])
+        (when (zero? a-pd)
+          (error 'bithoven
+                 "Cannot generate a part where a chord doesn't get any of division: ~v"
+                 (vector cp-s pd))))
+      (define pulses (* len measures-per-part (accent-pattern-pulses-per-measure ap)))
+      (define chord-pulses
+        (apply-factors-and-ensure-sum pulses pd))
+      (for ([cp (in-list chord-pulses)])
+        (when (zero? cp)
+          (error 'bithoven
+                 "Cannot generate a part where a chord doesn't get any pulses: ~v"
+                 (vector pd chord-pulses))))
       (define chord-rhythm
-        (for/list ([c (in-list chord-notes)])
-          (select-rhythm ts c)))
-      (printf "Rhythm: ~v x ~v => ~v\n" ts chord-notes chord-rhythm)
+        (for/list ([cp (in-list chord-pulses)])
+          (select-rhythm ts (* cp (accent-pattern-notes-per-pulse ap)))))
+      (printf "Rhythm: ~v x ~v => ~v\n" ts chord-pulses chord-rhythm)
       (define chord-track
         (split-into-measures
          ts

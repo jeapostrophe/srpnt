@@ -107,5 +107,12 @@
                            [i (in-naturals)])
                   dm))))))
 
+;; xxx look at http://famitracker.com/wiki/index.php?title=7xy and
+;; http://nes-audio.com/manuals/nijuu/nijuu_manual.html for effects
+
+;; xxx look at
+;; http://famitracker.com/wiki/index.php?title=Pattern_editor for
+;; tracking ideas
+
 ;; xxx cleanup
 (provide (all-defined-out))
