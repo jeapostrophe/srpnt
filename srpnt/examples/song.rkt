@@ -428,6 +428,7 @@
                phrase1)))))
 
 (require "../../bithoven.rkt")
+
 (define (composition->track c)
   (let ()
     (local-require racket/pretty)
@@ -436,12 +437,12 @@
   (let ()
     ;; xxx choose this
     (define base-octave (+ 2 (random 2)))
-     ;; xxx select this
+    ;; xxx select this
     (define tempo
-      140
+      (random 500)
       #;
       (select-from-list
-       '(300 180 170 160 140 135 118 120 115 80 200 280 45)))
+      '(500 360 300 180 170 160 140 135 118 120 115 80 200 280 45 350)))
     (printf "Tempo is ~v\n" tempo)
     (chorded-song->commands
      #:me
@@ -449,22 +450,117 @@
      #:ts ts
      #:drum
      ;; xxx generate this
-     (i:drum (vector (select-from-list (list closed-hihat
-                                             open-hihat
-                                             loose-hihat))
-                     bass-drum
-                     (select-from-list (list snare-drum1
-                                             snare-drum2))))
+     (if (< 80 tempo 170)
+         (i:drum (vector (select-from-list (list closed-hihat
+                                                 open-hihat
+                                                 loose-hihat))
+                         bass-drum
+                         (select-from-list (list snare-drum1
+                                                 snare-drum2))))
+         (i:drum (vector #f #f #f)))
      #:drum-measure
      ;; xxx generate this
-     (list (cons 0.125 0)
-           (cons 0.125 0)
-           (cons 0.125 (+ 1 (random 2)))
-           (cons 0.125 0)
-           (cons 0.125 0)
-           (cons 0.125 0)
-           (cons 0.125 (+ 1 (random 2)))
-           (cons 0.125 0))
+     (select-from-list
+      (list
+       ;; simple
+       (list (cons 0.125 0)
+             (cons 0.125 0)
+             (cons 0.125 1)
+             (cons 0.125 0)
+             (cons 0.125 0)
+             (cons 0.125 0)
+             (cons 0.125 2)
+             (cons 0.125 0))
+       ;; straight blues/rock groove
+       (list (cons 0.125 1)
+             (cons 0.125 0)
+             (cons 0.125 2)
+             (cons 0.125 0)
+             (cons 0.125 1)
+             (cons 0.125 0)
+             (cons 0.125 2)
+             (cons 0.125 0))
+       ;; duple drum pattern with triplets
+       (list (cons 0.125 1)
+             (cons 0.0625 0)
+             (cons 0.0625 0)
+             (cons 0.125 2)
+             (cons 0.0625 0)
+             (cons 0.0625 0)
+             (cons 0.125 1)
+             (cons 0.0625 0)
+             (cons 0.0625 0)
+             (cons 0.125 2)
+             (cons 0.0625 0)
+             (cons 0.0625 0))
+       ;; with fill
+       (list (cons 0.125 1)
+             (cons 0.125 0)
+             (cons 0.125 2)
+             (cons 0.125 0)
+             (cons 0.125 1)
+             (cons 0.125 0)
+             (cons 0.125 2)
+             (cons 0.0625 2)
+             (cons 0.0625 2))
+       ;; without fill
+          (list (cons 0.125 1)
+                (cons 0.125 0)
+                (cons 0.125 2)
+                (cons 0.125 0)
+                (cons 0.125 1)
+                (cons 0.125 1)
+                (cons 0.125 2)
+                (cons 0.125 0))
+          ;; double time
+             (list (cons 0.0625 1)
+                   (cons 0.0625 0)
+                   (cons 0.0625 2)
+                   (cons 0.0625 0)
+                   (cons 0.0625 1)
+                   (cons 0.0625 0)
+                   (cons 0.0625 2)
+                   (cons 0.0625 0)
+                   (cons 0.0625 1)
+                   (cons 0.0625 0)
+                   (cons 0.0625 2)
+                   (cons 0.0625 0)
+                   (cons 0.0625 1)
+                   (cons 0.0625 0)
+                   (cons 0.0625 2)
+                   (cons 0.0625 0))
+             ;; blast beat
+                (list (cons 0.125 1)
+                      (cons 0.125 2)
+                      (cons 0.125 1)
+                      (cons 0.125 2)
+                      (cons 0.125 1)
+                      (cons 0.125 2)
+                      (cons 0.125 1)
+                      (cons 0.125 2))
+                ;; funk beat / delayed backbeat
+                   (list (cons 0.125 1)
+                         (cons 0.125 0)
+                         (cons 0.125 2)
+                         (cons 0.125 0)
+                         (cons 0.125 1)
+                         (cons 0.125 1)
+                         (cons 0.125 0)
+                         (cons 0.125 2))
+                   ;; heavy metal gallop
+                   (list (cons 0.125 1)
+                         (cons 0.0625 1)
+                         (cons 0.0625 1)
+                         (cons 0.125 2)
+                         (cons 0.0625 1)
+                         (cons 0.0625 1)
+                         (cons 0.125 1)
+                         (cons 0.0625 1)
+                         (cons 0.0625 1)
+                         (cons 0.125 2)
+                         (cons 0.0625 1)
+                         (cons 0.0625 1))
+                   ))
      #:instruments
      ;; xxx generate this
      (vector (cons (if (zero? (random 2))
@@ -485,6 +581,8 @@
   (play-one! (cmd:repeat (composition->track (bithoven)))))
 
 (define main-track
+  (composition->track (bithoven))
+  #;
   (cmd:repeat
    (composition->track (bithoven))
    #;237:Do-What-Is-Right

@@ -216,7 +216,6 @@
   (when #f
     (apply printf args)))
 
-;; XXX This function is probably wrong.
 (define (midi-len->frames ticks-per-quarter-note trial-frames-per-quarter-note.0 ticks)
   (define ticks.0 (fx->fl ticks))
   (define ticks-per-quarter-note.0 (fx->fl ticks-per-quarter-note))
@@ -268,7 +267,6 @@
   (cmd:frame* p1 p2 t
               #f #f #f))
 
-;; XXX This function is probably wrong
 (define (raw-tempo->frames-per-qnote microseconds-per-qnote)
   (define microseconds-per-qnote.0 (fx->fl microseconds-per-qnote))
   (define usecs-per-sec.0 (fl* 1000.0 1000.0))
@@ -327,6 +325,12 @@
 ;; I have no idea why this works on some MIDI files and not
 ;; others. Basically everything on http://www.ninsheetm.us/ works but
 ;; I haven't found nay classical music that works.
+;;
+;; I believe the heart of the problem is handling tempo incorrectly. I
+;; attempted to do this with midi-len->frames and
+;; raw-tempo->frames-per-qnote but they seem to give nonsense
+;; answers. I don't really care too much about this, since this was
+;; just a demo.
 (module+ main
   (require racket/cmdline)
   (command-line #:program "midi"

@@ -249,7 +249,10 @@
 
 (define (bithoven)
   ;; xxx really a play parameter
-  (define scale-kind (select-from-list scales))
+  (define scale-kind 
+    scale-diatonic-major
+    #;scale-diminished
+    #;(select-from-list scales))
   (define scale-root (select-from-list tone-names))
   (define scale (scale-kind scale-root))
   (define ts (select-time-sig))

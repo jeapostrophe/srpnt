@@ -23,7 +23,7 @@
 (define metronome/c
   (cons/c note/c exact-nonnegative-integer?))
 
-(define (frames-in-note me note)
+(define (frames-in-note.0 me note)
   (match-define (cons beat-unit beats-per-minute) me)
   (define beats-per-second (fl/ (fx->fl beats-per-minute) 60.0))
   (define beats-per-frame (fl/ beats-per-second 60.0))
@@ -31,7 +31,9 @@
   (define beats-in-note (fl/ note beat-unit))
   (define frames-in-note
     (fl* beats-in-note frames-per-beat))
-  (fl->fx (flround frames-in-note)))
+  frames-in-note)
+(define (frames-in-note me note)  
+  (fl->fx (flround (frames-in-note.0 me note))))
 (module+ test
   (check-equal? (frames-in-note (cons 0.25 60) 0.25) 60)
   (check-equal? (frames-in-note (cons 0.25 60) 0.125) 30)
@@ -54,6 +56,8 @@
 
 (define (frames-in-bar me ts)
   (frames-in-note me (notes-in-bar ts)))
+(define (frames-in-bar.0 me ts)
+  (frames-in-note.0 me (notes-in-bar ts)))
 (module+ test
   (check-equal? (frames-in-bar (cons 0.25 60) (cons 4 0.25)) 240))
 
@@ -155,6 +159,8 @@
       (list-read base offsets))
     (set! scales (snoc scales scale-name))))
 
+(define lazy-scale '(0 1 2 3 4 5 6))
+
 (define-scale scale-diatonic-major '(2 2 1 2 2 2 1))
 (module+ test
   (check-equal? (scale-diatonic-major 'C)
@@ -167,17 +173,14 @@
 (define-scale scale-harmonic-minor '(2 1 2 2 1 3 1))
 (define-scale scale-diminished '(2 1 2 1 2 1 2 1))
 (define-scale scale-whole-tone '(2 2 2 2 2 2))
-;; xxx messes with chords
-;; (define-scale scale-blues '(3 2 1 1 3 2))
+(define-scale scale-blues '(3 2 1 1 3 2))
 (define-scale scale-minor-pentatonic '(3 2 2 3 2))
 (define-scale scale-major-pentatonic '(2 2 3 2 3))
 (define-scale scale-hungarian-minor '(2 1 3 1 1 3 1))
 (define-scale scale-persian '(1 3 1 1 2 3 1))
-;; XXX only has 5 so messes with chords
-;; (define-scale scale-hirojoshi '(2 1 4 1 4))
+(define-scale scale-hirojoshi '(2 1 4 1 4))
 (define-scale scale-arabian '(2 2 1 1 2 2 2))
-;; XXX only has 5 so messes with chords
-;; (define-scale scale-scottish '(2 3 2 2 3))
+(define-scale scale-scottish '(2 3 2 2 3))
 ;; xxx add exotic scales? http://www.lotusmusic.com/lm_exoticscales.html
 
 (module+ test
@@ -271,5 +274,5 @@
     (for ([t (in-list (chord-inversions (chord-seventh scale-tones)))])
       (printf "\t~a\n" t))))
 
-;; xxx
+;; xxx contracts
 (provide (all-defined-out))
