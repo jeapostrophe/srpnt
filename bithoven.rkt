@@ -248,13 +248,7 @@
       ['() '()])))
 
 (define (bithoven)
-  ;; xxx really a play parameter
-  (define scale-kind 
-    scale-diatonic-major
-    #;scale-diminished
-    #;(select-from-list scales))
-  (define scale-root (select-from-list tone-names))
-  (define scale (scale-kind scale-root))
+  (define scale lazy-scale)
   (define ts (select-time-sig))
   (define ap (select-accent-pattern ts))
   (define f (select-form))
@@ -265,7 +259,7 @@
     (for/list ([bn (in-list bns)])
       (first (chord-triad (mode scale bn)))))
   (printf "~v\n"
-          (vector scale-kind scale-root f cp))
+          (vector f cp))
   ;; xxx ensure that there can always be at least 1 beat per chord in
   ;; progression (i.e. compute the minimum measures and round up then
   ;; take the minimum of these two computations)

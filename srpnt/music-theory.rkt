@@ -32,7 +32,7 @@
   (define frames-in-note
     (fl* beats-in-note frames-per-beat))
   frames-in-note)
-(define (frames-in-note me note)  
+(define (frames-in-note me note)
   (fl->fx (flround (frames-in-note.0 me note))))
 (module+ test
   (check-equal? (frames-in-note (cons 0.25 60) 0.25) 60)
@@ -112,22 +112,26 @@
                [i (in-naturals)])
     (values t i)))
 
-(define (list-rotate/modify modify base start)
+(define (list-ref/modify modify base new-i)
   (define len (length base))
-  (for/list ([i (in-range len)])
+  (define idx (fxmodulo new-i len))
+  (define doctave (fxquotient new-i len))
+  (modify (list-ref base idx) doctave))
+
+(define (list-rotate/modify modify base start)
+  (for/list ([i (in-range (length base))])
     (define new-i (fx+ start i))
-    (define idx (fxmodulo new-i len))
-    (define doctave (fxquotient new-i len))
-    (modify (list-ref base idx) doctave)))
+    (list-ref/modify modify base new-i)))
+
+(define (modify/octave v doctave)
+  (match v
+    [(? symbol? tone)
+     (cons tone doctave)]
+    [(cons tone doctave1)
+     (cons tone (+ doctave1 doctave))]))
 
 (define (list-rotate base start)
-  (define (modify v doctave)
-    (match v
-      [(? symbol? tone)
-       (cons tone doctave)]
-      [(cons tone doctave1)
-       (cons tone (+ doctave1 doctave))]))
-  (list-rotate/modify modify base start))
+  (list-rotate/modify modify/octave base start))
 
 (define (scale-chromatic/idx start-idx)
   (list-rotate tone-names start-idx))
@@ -159,7 +163,7 @@
       (list-read base offsets))
     (set! scales (snoc scales scale-name))))
 
-(define lazy-scale '(0 1 2 3 4 5 6))
+(define lazy-scale (map (λ (x) (cons x 0)) '(0 1 2 3 4 5 6)))
 
 (define-scale scale-diatonic-major '(2 2 1 2 2 2 1))
 (module+ test

@@ -429,13 +429,31 @@
 
 (require "../../bithoven.rkt")
 
+(define (force-lazy-scale/tones scale tones)
+  (for/list ([t*o (in-list tones)])
+    (match-define (cons off t-oct) t*o)
+    (match-define (cons tone s-oct) (list-ref/modify modify/octave scale off))
+    (cons tone (fx+ t-oct s-oct))))
+(define (force-lazy-scale/measures scale ms)
+  (for/list ([ns (in-list ms)])
+    (for/list ([n (in-list ns)])
+      (match-define (list* note tones more) n)
+      (list* note (force-lazy-scale/tones scale tones) more))))
+
 (define (composition->track c)
+  (define scale-kind 
+    scale-diatonic-major
+    #;
+    (select-from-list scales))
+  (define scale-root (select-from-list tone-names))
+  (define scale (scale-kind scale-root))
+
   (let ()
     (local-require racket/pretty)
     (pretty-print c))
   (match-define (vector ts pattern parts) c)
   (let ()
-    ;; xxx choose this
+    ;; xxx choose this (and make sure every instrument can play the notes)
     (define base-octave (+ 2 (random 2)))
     ;; xxx select this
     (define tempo
@@ -575,7 +593,7 @@
      #:measures
      (append*
       (for/list ([p (in-list pattern)])
-        (hash-ref parts p))))))
+        (force-lazy-scale/measures scale (hash-ref parts p)))))))
 
 (module+ main
   (play-one! (cmd:repeat (composition->track (bithoven)))))
