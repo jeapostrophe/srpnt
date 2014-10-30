@@ -16,17 +16,21 @@
 (define (select-time-sig)
   (select-from-list (list time-sig/ts:4:4)))
 
+;; xxx #t means "accented" and "can be the start of a chord
+;; change", but the second thing isn't correctly used
 (struct accent-pattern (name pulses-per-measure accents) #:transparent)
+
+(define time-sig->accents
+  (hash
+   time-sig/ts:4:4
+   (list (accent-pattern "standard"  1 '(#t #f #f #f))
+         (accent-pattern "on-beats"  2 '(#t #f #t #f))
+         (accent-pattern "off-beats" 2 '(#f #t #f #t)))))
+
 (define (select-accent-pattern ts)
   (select-from-list
    (hash-ref
-    (hash
-     time-sig/ts:4:4
-     ;; xxx #t means "accented" and "can be the start of a chord
-     ;; change", but the second thing isn't correctly used
-     (list (accent-pattern "standard"  1 '(#t #f #f #f))
-           (accent-pattern "on-beats"  2 '(#t #f #t #f))
-           (accent-pattern "off-beats" 2 '(#f #t #f #t))))
+    time-sig->accents
     ts)))
 
 (define (accent-pattern-notes-per-pulse ap)
@@ -202,53 +206,109 @@
   (check-equal? (apply-factors-and-ensure-sum 4 '(1/4 1/2 1/8 1/8))
                 '(1 1 1 1)))
 
-;; per chord phrase / measure
-
-;; xxx select rhythm (needs to be compatible with accent pattern/time sig)
-(define (select-rhythm ts notes)
-  ;; xxx ignoring ts/ap
+;; xxx (needs to be compatible with accent pattern)
+(define (select-rhythm a-ts notes)
+  (match-define (time-sig _ ts) a-ts)
+  (match-define (cons beats-per-bar beat-unit) ts)
   (select-from-list
-   (if #t
-       (list
-        (for/list ([k (in-range notes)])
-          0.250))
-       (list
-        (let ()
-          (define minimum-note 0.125)
-          (define-values (rem l)
-            (for/fold ([remaining (* 0.250 notes)]
-                       [l empty])
-                      ([k (in-range notes)])
-              (define maximum-note
-                (- remaining (* minimum-note (sub1 (- notes k)))))
-              '(printf "MIN ~v REM ~v K ~v NS ~v MAX ~v\n"
-                minimum-note remaining k notes maximum-note)
-              (define this
-                (if (= k (sub1 notes))
-                    remaining
-                    (select-from-list
-                     (filter (λ (n) (<= n maximum-note))
-                             (list 1.000 0.875 0.750 0.625
-                                   0.500 0.375 0.250 0.125)))))
-              (values (- remaining this)
-                      (cons this l))))
-          (unless (zero? rem)
-            (error 'select-rhythm "Failed to use all notes: ~v vs ~v"
-                   rem l))
-          l)))))
+   (list
+    (for/list ([k (in-range notes)])
+      beat-unit)
+    (let loop ([remaining (* beat-unit notes)])
+      (cond
+       [(fl= 0.0 remaining)
+        empty]
+       [else
+        (define-values (next-total nexts)
+          (if (<= (* 2 beat-unit) remaining)
+              (if (zero? (random 2))
+                  (values (* 2 beat-unit) (list (* 2 beat-unit)))
+                  (values (* 2 beat-unit) (list beat-unit beat-unit)))
+              (values beat-unit (list beat-unit))))
+        (append nexts (loop (fl- remaining next-total)))])))))
 
-(define (accentify a a?)
-  (match-define (vector note middle) a)
-  (list* note middle a?))
-;; xxx generalize to non-4/4 and non-quarter notes
-(define (split-into-measures ts ap ns)
-  (match-define (accent-pattern _ _ (list a? b? c? d?)) ap)
-  (let loop ([ns ns])
+(define (split-into-measures a-ts ap ns)
+  (match-define (time-sig _ ts) a-ts)
+  (match-define (cons beats-per-bar beat-unit) ts)
+  (define goal (notes-in-bar ts))
+  (match-define (accent-pattern _ _ accents) ap)
+  (define (consume-notes ns)
+    (let loop ([total 0.0] [so-far empty] [ns ns])
+      (cond
+       [(> total goal)
+        (error 'split-into-measures "Notes went over a measure!")]
+       [(= total goal)
+        (values (reverse so-far) ns)]
+       [else
+        (match-define (vector note args) (first ns))
+        (define new-total (fl+ note total))
+        (define (list-ref* l i)
+          (if (<= (length l) i)
+              #f
+              (list-ref l i)))
+        (define accented?
+          (list-ref* accents (fl->fx (flceiling (fl/ total beat-unit)))))
+        (define new-note (list* note args accented?))
+        (define new-so-far (cons new-note so-far))
+        (loop new-total new-so-far (rest ns))])))
+  (define (consume-measures ns)
     (match ns
-      [(list* a b c d more)
-       (cons (list (accentify a a?) (accentify b b?) (accentify c c?) (accentify d d?))
-             (loop more))]
-      ['() '()])))
+      ['() '()]
+      [_
+       (define-values (a-measure more-ns) (consume-notes ns))
+       (cons a-measure (consume-measures more-ns))]))
+  (consume-measures ns))
+
+(module+ test
+  (let ()
+    (define ts time-sig/ts:4:4)
+    (check-equal?
+     (split-into-measures ts (first (hash-ref time-sig->accents ts))
+                          (list (vector 0.25 'N)
+                                (vector 0.25 'N)
+                                (vector 0.25 'N)
+                                (vector 0.25 'N)
+
+                                (vector 0.25 'N)
+                                (vector 0.25 'N)
+                                (vector 0.25 'N)
+                                (vector 0.25 'N)))
+     (list (list (list* 0.25 'N #t)
+                 (list* 0.25 'N #f)
+                 (list* 0.25 'N #f)
+                 (list* 0.25 'N #f))
+           (list (list* 0.25 'N #t)
+                 (list* 0.25 'N #f)
+                 (list* 0.25 'N #f)
+                 (list* 0.25 'N #f))))
+
+    (check-equal?
+     (split-into-measures ts (first (hash-ref time-sig->accents ts))
+                          (list (vector 0.125 'N) (vector 0.125 'N)
+                                (vector 0.125 'N) (vector 0.125 'N)
+                                (vector 0.125 'N) (vector 0.125 'N)
+                                (vector 0.125 'N) (vector 0.125 'N)))
+     (list (list (list* 0.125 'N #t) (list* 0.125 'N #f)
+                 (list* 0.125 'N #f) (list* 0.125 'N #f)
+                 (list* 0.125 'N #f) (list* 0.125 'N #f)
+                 (list* 0.125 'N #f) (list* 0.125 'N #f))))
+
+    (check-exn
+     exn:fail?
+     (λ ()
+       (split-into-measures ts (first (hash-ref time-sig->accents ts))
+                            (list (vector 0.125 'N) (vector 0.125 'N)
+                                  (vector 0.125 'N) (vector 0.125 'N)
+                                  (vector 0.125 'N) (vector 0.125 'N)
+                                  (vector 0.125 'N)))))
+    (check-exn
+     exn:fail?
+     (λ ()
+       (split-into-measures ts (first (hash-ref time-sig->accents ts))
+                            (list (vector 0.125 'N) (vector 0.125 'N)
+                                  (vector 0.125 'N) (vector 0.125 'N)
+                                  (vector 0.125 'N) (vector 0.125 'N)
+                                  (vector 0.125 'N) (vector 0.250 'N)))))))
 
 (define (bithoven)
   (define scale lazy-scale)
@@ -272,12 +332,14 @@
         (/ (length cp-s)
            (accent-pattern-pulses-per-measure ap))))
      ;; If a form is long, then don't make each part long
+     4
+     #;
      (let ()
-       (define pat-length (length (form-pattern f)))
-       (cond
-        [(< pat-length 3) 4]
-        [(< pat-length 5) 2]
-        [else 1]))))
+     (define pat-length (length (form-pattern f)))
+     (cond
+     [(< pat-length 3) 4]
+     [(< pat-length 5) 2]
+     [else 1]))))
   (define parts
     (for/hasheq ([p (in-list (form-part-lens f))])
       (match-define (cons label len) p)

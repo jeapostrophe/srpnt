@@ -598,7 +598,7 @@
       (for/list ([p (in-list pattern)])
         (force-lazy-scale/measures scale rest-n (hash-ref parts p))))))
 
-  (list (convert scale-diatonic-major 8 480)
+  (list (convert scale-diatonic-major 8 280)
         (convert scale-diatonic-major 8 140)
         (convert scale-diminished #f 70)
         (convert scale-blues 16 210)
