@@ -122,8 +122,8 @@
               v)))
       (function f #:color x-max #:label (format "frames = ~a" x-max)))
     (plot (list #;(plot-one 10)
-                (plot-one 25)
-                #;(plot-one 50))
+           (plot-one 25)
+           #;(plot-one 50))
           #:x-min 0 #:x-max 50
           #:y-min 0)
     (plot (function (λ (t) (* 2 (sin (* 2 pi (/ 440 60) (/ t 100))))))
@@ -432,14 +432,72 @@
      (let ()
        (match-define
         (list melody harmony bass)
-        (shuffle
-         (list (if (zero? (random 2))
-                   (i:pulse (+ 1 (random 2)) 6)
-                   (i:pulse-plucky 0.25 (+ 1 (random 2)) 6))
-               (if (zero? (random 2))
-                   (i:pulse (+ 1 (random 2)) 6)
-                   (i:pulse-slow-mod 16 (+ 1 (random 2)) 6))
-               (i:triangle))))
+        (cond
+         [#t
+          (struct spec ())
+          (struct spec:constant spec (v))
+          (struct spec:adsr spec (expander a as d ds s ss r rs))
+          (struct spec:linear spec (lo hi))
+          (struct spec:apply spec (f ns))
+          (struct spec:modulate spec (freq base extent))
+          (struct staged ())
+          (struct staged:adsr spec (fun map))
+          (define (stage-spec s f)
+            (match s
+              [(spec:adsr e a as d ds s ss r rs)
+               (staged:adsr ((adsr e a d s r) f) (vector as ds ss rs))]
+              [_ s]))
+          (define (eval-spec s f)
+            (match s
+              [(staged:adsr adsr map)
+               (define-values (which %) (adsr f))
+               (eval-spec (vector-ref map which) %)]
+              [(spec:constant v)
+               v]
+              [(spec:apply fun ns)
+               (eval-spec ns (fun f))]
+              [(spec:modulate freq base extent)
+               (modulate freq base extent f)]
+              [(spec:linear lo hi)
+               (linear lo hi f)]))
+          (define (i:pulse/adsr+modulate #:duty dspec #:period pspec #:volume vspec)
+            (λ (frames tone*accent?)
+              (define d* (stage-spec dspec frames))
+              (define p* (stage-spec pspec frames))
+              (define v* (stage-spec vspec frames))
+              (match-define (cons tone accent?) tone*accent?)
+              (define base-per (pulse-tone->period tone))
+              (define base-volume (if accent? 1 0))
+              (for/list ([f (in-range frames)])
+                (define duty (eval-spec d* f))
+                (define per (fx+ base-per (eval-spec p* f)))
+                (define volume (fx+ base-volume (eval-spec v* f)))
+                (wave:pulse duty per volume))))
+          (list (i:pulse/adsr+modulate
+                 #:duty (spec:constant 2)
+                 #:period
+                 (spec:adsr 'sustain
+                            20 (spec:linear -5 5)
+                            05 (spec:linear 5 0)
+                            10 (spec:constant 0)
+                            05 (spec:linear 0 -5))
+                 #:volume
+                 (spec:adsr 'sustain
+                            05 (spec:linear 0 15)
+                            05 (spec:linear 15 6)
+                            10 (spec:modulate 440.0 6 4)
+                            05 (spec:linear 6 0)))
+                (i:pulse 2 6)
+                (i:triangle))]
+         [else
+          (shuffle
+           (list (if (zero? (random 2))
+                     (i:pulse (+ 1 (random 2)) 6)
+                     (i:pulse-plucky 0.25 (+ 1 (random 2)) 6))
+                 (if (zero? (random 2))
+                     (i:pulse (+ 1 (random 2)) 6)
+                     (i:pulse-slow-mod 16 (+ 1 (random 2)) 6))
+                 (i:triangle)))]))
        (vector (cons melody (fx+ base-octave 1))
                (cons harmony base-octave)
                (cons bass (fx- base-octave 1))))
@@ -468,9 +526,7 @@
               (and (zero? (random 2)) (+ 4 (random 8)))
               (+ 50 (random 400)))))
 
-  (convert (select-from-list scales)
-           (and (zero? (random 2)) (+ 4 (random 8)))
-           (+ 50 (random 400))))
+  (convert scale-diatonic-major 8 140))
 
 (module+ main-x
   (play-one! (cmd:repeat (composition->track (bithoven)))))
