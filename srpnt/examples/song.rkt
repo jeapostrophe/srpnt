@@ -22,6 +22,89 @@
                           (wave:dmc sample-bs s)
                           #f)))
 
+;; A traditional ADSR is based on four phases of control:
+;; - Attack: The level increases after the ON event for a time
+;; - Delay: The level decrease after Attack is over
+;; - Sustain: The level stays the same until OFF event
+;; - Release: The level drops after the OFF event
+;;
+;; In my tracker, the amount of time an instrument is played is not
+;; expressed as ON/OFF events, but we are called with an explicit time
+;; (in frames). This means we don't really need to specify the sustain
+;; parameter because we can compute it by subtracting the other
+;; parameters.
+;;
+;; It would be natural to express these times as %s of the input frame
+;; time, but in a real instrument when you hold a button on a piano
+;; longer it doesn't make the attack longer, instead the attack is a
+;; fixed amount of time, like 5ms.
+;;
+;; The problem then is that if I take explicit times, then if the
+;; tempo is so fast that there would be no sustain phase, we want to
+;; change it into a percentage. So, I will require the sustain
+;; parameter to be specified to compute the expected total time.
+;;
+;; Then, rather than actual compute the parameter, we return whether
+;; the process is in stage 0, 1, 2, or 3 and what percentage through
+;; it you are.
+(define (adsr attack decay sustain release)
+  (define base (fx+ (fx+ attack decay) (fx+ sustain release)))
+  (define base.0 (fx->fl base))
+  (define-syntax-rule (define% attack% attack)
+    (define attack% (fl/ (fx->fl attack) base.0)))
+  (define% attack% attack)
+  (define% decay% decay)
+  (define% sustain% sustain)
+  (define% release% release)
+  (λ (total-frames)
+    (define total-frames.0 (fx->fl total-frames))
+    (define-values (attack-len.0 decay-len.0 sustain-len.0 release-len.0)
+      (if (fx< total-frames base)
+          (values (fl* attack% total-frames.0)
+                  (fl* decay% total-frames.0)
+                  (fl* sustain% total-frames.0)
+                  (fl* release% total-frames.0))
+          (values (fx->fl attack)
+                  (fx->fl decay)
+                  (fx->fl (fx- total-frames (fx+ attack (fx+ decay release))))
+                  (fx->fl release))))
+    (define attack-end.0 (fl+ 0.0 attack-len.0))
+    (define decay-end.0 (fl+ attack-end.0 decay-len.0))
+    (define sustain-end.0 (fl+ decay-end.0 sustain-len.0))
+    (define release-end.0 (fl+ sustain-end.0 release-len.0))
+    (λ (frame-i)
+      (define frame-i.0 (fx->fl frame-i))
+      (cond
+       [(fl< frame-i.0 attack-end.0)
+        (values 0 (fl/ frame-i.0 attack-len.0))]
+       [(fl< frame-i.0 decay-end.0)
+        (values 1 (fl/ (fl- frame-i.0 attack-end.0) decay-len.0))]
+       [(fl< frame-i.0 sustain-end.0)
+        (values 2 (fl/ (fl- frame-i.0 decay-end.0) sustain-len.0))]
+       [else
+        (values 3 (fl/ (fl- frame-i.0 sustain-end.0) release-len.0))]))))
+
+(define (linear lo hi %)
+  (fx+ lo (fl->fx (flround (fl* % (fx->fl (fx- hi lo)))))))
+
+(module+ test
+  (require plot)
+  (plot-new-window? #t)
+  (define borders (vector '(0 . 10) '(10 . 5) '(5 . 5) '(5 . 0)))
+  (define (plot-one x-max)
+    (define phase-f ((adsr 5 5 10 5) x-max))
+    (define (f x)
+      (with-handlers ([exn:fail? (λ (x) (displayln (exn-message x)))])
+        (define-values (which %) (phase-f (round x)))
+        (match-define (cons lo hi) (vector-ref borders which))
+        (linear lo hi %)))
+    (function f #:color x-max #:label (format "frames = ~a" x-max)))
+  (plot (list (plot-one 10)
+              (plot-one 25)
+              (plot-one 50))
+        #:x-min 0 #:x-max 50
+        #:y-min -1 #:y-max 11))
+
 ;; 3, 4, 8 sound good
 ;; 9 is crunchy
 ;; 7 and C are okay
@@ -31,54 +114,16 @@
 
 (define bass-drum
   (noise-line [1 #f 9 10] [2 #f 9 7] [3 #f 9 4] [3 #f 9 3] [4 #f 9 2]))
-
 (define snare-drum1
-  (noise-line [1 #f 7 11]
-              [1 #f 7 9]
-              [2 #f 7 8]
-              [2 #f 7 7]
-              [3 #f 7 4]
-              [3 #f 7 3]
-              [3 #f 7 2]))
-
+  (noise-line [1 #f 7 11] [1 #f 7 9] [2 #f 7 8] [2 #f 7 7] [3 #f 7 4] [3 #f 7 3] [3 #f 7 2]))
 (define snare-drum2
-  (noise-line [1 #f 7 11]
-              [1 #f 7 9]
-              [1 #f 7 8]
-              [1 #f 7 7]
-              [1 #f 7 6]
-              [2 #f 7 4]
-              [2 #f 7 3]
-              [4 #f 7 2]))
-
+  (noise-line [1 #f 7 11] [1 #f 7 9] [1 #f 7 8] [1 #f 7 7] [1 #f 7 6] [2 #f 7 4] [2 #f 7 3] [4 #f 7 2]))
 (define closed-hihat
-  (noise-line [1 #f #xC 4]
-              [2 #f #xC 3]
-              [4 #f #xC 2]
-              [4 #f #xC 1]))
-
+  (noise-line [1 #f #xC 4] [2 #f #xC 3] [4 #f #xC 2] [4 #f #xC 1]))
 (define loose-hihat
-  (noise-line [1 #f #xC 7]
-              [2 #f #xC 5]
-              [4 #f #xC 4]
-              [2 #f #xC 2]
-              [4 #f #xC 2]
-              [2 #f #xC 1]))
-
+  (noise-line [1 #f #xC 7] [2 #f #xC 5] [4 #f #xC 4] [2 #f #xC 2] [4 #f #xC 2] [2 #f #xC 1]))
 (define open-hihat
-  (noise-line [1 #f #xC 6]
-              [1 #f #xC 5]
-              [3 #f #xC 4]
-              [2 #f #xC 3]
-              [4 #f #xC 2]
-              [4 #f #xC 1]))
-
-;; xxx more real code
-
-;; xxx add different kinds of accents
-;; xxx generate drum beats
-;;  - https://en.wikipedia.org/wiki/Drum_beat from accents & time-sigs
-;;  - http://retrogameaudio.tumblr.com/post/19088836599/nes-audio-asterix-noise-instruments
+  (noise-line [1 #f #xC 6] [1 #f #xC 5] [3 #f #xC 4] [2 #f #xC 3] [4 #f #xC 2] [4 #f #xC 1]))
 
 (define (i:pulse duty volume)
   (λ (frames tone*accent?)
@@ -126,7 +171,7 @@
          (fx- remaining part-frames)
          (cons l
                (cmd:hold* (fxmin remaining part-frames)
-                          (wave:pulse (fxmax 0 (if (even? n) duty (fx- duty 1)))
+                          (wave:pulse (fxmin 4 (fxmax 0 (if (even? n) duty (fx- duty 1))))
                                       per evolume))))))
     l))
 
@@ -261,84 +306,71 @@
 
 ;; xxx get more from here: http://en.wikipedia.org/wiki/Drum_beat
 (define beat:heavy-metal
-  (list (cons 0.125 1)
-        (cons 0.0625 1)
-        (cons 0.0625 1)
-        (cons 0.125 2)
-        (cons 0.0625 1)
-        (cons 0.0625 1)
-        (cons 0.125 1)
-        (cons 0.0625 1)
-        (cons 0.0625 1)
-        (cons 0.125 2)
-        (cons 0.0625 1)
-        (cons 0.0625 1)))
+  (list (cons 0.125 1) (cons 0.0625 1) (cons 0.0625 1)
+        (cons 0.125 2) (cons 0.0625 1) (cons 0.0625 1)
+        (cons 0.125 1) (cons 0.0625 1) (cons 0.0625 1)
+        (cons 0.125 2) (cons 0.0625 1) (cons 0.0625 1)))
 (define beat:blast-beat
-  (list (cons 0.125 1)
-        (cons 0.125 2)
-        (cons 0.125 1)
-        (cons 0.125 2)
-        (cons 0.125 1)
-        (cons 0.125 2)
-        (cons 0.125 1)
-        (cons 0.125 2)))
+  (list (cons 0.125 1) (cons 0.125 2)
+        (cons 0.125 1) (cons 0.125 2)
+        (cons 0.125 1) (cons 0.125 2)
+        (cons 0.125 1) (cons 0.125 2)))
 (define beat:funk-beat
-  (list (cons 0.125 1)
-        (cons 0.125 0)
-        (cons 0.125 2)
-        (cons 0.125 0)
-        (cons 0.125 1)
-        (cons 0.125 1)
-        (cons 0.125 0)
-        (cons 0.125 2)))
+  (list (cons 0.125 1) (cons 0.125 0)
+        (cons 0.125 2) (cons 0.125 0)
+        (cons 0.125 1) (cons 0.125 1)
+        (cons 0.125 0) (cons 0.125 2)))
 (define beat:double-time
-  (list (cons 0.0625 1)
-        (cons 0.0625 0)
-        (cons 0.0625 2)
-        (cons 0.0625 0)
-        (cons 0.0625 1)
-        (cons 0.0625 0)
-        (cons 0.0625 2)
-        (cons 0.0625 0)
-        (cons 0.0625 1)
-        (cons 0.0625 0)
-        (cons 0.0625 2)
-        (cons 0.0625 0)
-        (cons 0.0625 1)
-        (cons 0.0625 0)
-        (cons 0.0625 2)
-        (cons 0.0625 0)))
+  (list (cons 0.0625 1) (cons 0.0625 0) (cons 0.0625 2) (cons 0.0625 0)
+        (cons 0.0625 1) (cons 0.0625 0) (cons 0.0625 2) (cons 0.0625 0)
+        (cons 0.0625 1) (cons 0.0625 0) (cons 0.0625 2) (cons 0.0625 0)
+        (cons 0.0625 1) (cons 0.0625 0) (cons 0.0625 2) (cons 0.0625 0)))
 (define beat:straight-rock
-  (list (cons 0.125 1)
-        (cons 0.125 0)
-        (cons 0.125 2)
-        (cons 0.125 0)
-        (cons 0.125 1)
-        (cons 0.125 0)
-        (cons 0.125 2)
-        (cons 0.125 0)))
+  (list (cons 0.125 1) (cons 0.125 0)
+        (cons 0.125 2) (cons 0.125 0)
+        (cons 0.125 1) (cons 0.125 0)
+        (cons 0.125 2) (cons 0.125 0)))
 (define beat:alternating-on
-  (list (cons 0.125 0)
-        (cons 0.125 0)
-        (cons 0.125 1)
-        (cons 0.125 0)
-        (cons 0.125 0)
-        (cons 0.125 0)
-        (cons 0.125 2)
-        (cons 0.125 0)))
+  (list (cons 0.125 0) (cons 0.125 0)
+        (cons 0.125 1) (cons 0.125 0)
+        (cons 0.125 0) (cons 0.125 0)
+        (cons 0.125 2) (cons 0.125 0)))
 (define beat:duple-triplets
-  (list (cons 0.125 1)
-        (cons 0.0625 0)
-        (cons 0.0625 0)
-        (cons 0.125 2)
-        (cons 0.0625 0)
-        (cons 0.0625 0)
-        (cons 0.125 1)
-        (cons 0.0625 0)
-        (cons 0.0625 0)
-        (cons 0.125 2)
-        (cons 0.0625 0)
-        (cons 0.0625 0)))
+  (list (cons 0.125 1) (cons 0.0625 0) (cons 0.0625 0)
+        (cons 0.125 2) (cons 0.0625 0) (cons 0.0625 0)
+        (cons 0.125 1) (cons 0.0625 0) (cons 0.0625 0)
+        (cons 0.125 2) (cons 0.0625 0) (cons 0.0625 0)))
+
+(define (select-drum-measure ts ap)
+  ;; xxx make this more robust
+  (cond
+   [(eq? ts ts:4:4)
+    (match ap
+      ['(#t #f #f #f)
+       (select-from-list
+        (list
+         (list (cons 0.125 1) (cons 0.125 0)
+               (cons 0.125 0) (cons 0.125 0)
+               (cons 0.125 0) (cons 0.125 0)
+               (cons 0.125 0) (cons 0.125 0))
+         (list (cons 0.125 2) (cons 0.125 0)
+               (cons 0.125 0) (cons 0.125 0)
+               (cons 0.125 0) (cons 0.125 0)
+               (cons 0.125 0) (cons 0.125 0))))]
+      [_
+       (select-from-list
+        (list
+         beat:alternating-on
+         beat:straight-rock
+         beat:duple-triplets
+         beat:double-time
+         beat:blast-beat
+         beat:funk-beat
+         beat:heavy-metal))])]
+   [(eq? ts ts:3:4)
+    (list (cons 0.125 1) (cons 0.125 0)
+          (cons 0.125 0) (cons 0.125 0)
+          (cons 0.125 0) (cons 0.125 0))]))
 
 (define (composition->track c)
   (define (convert scale-kind rest-n tempo)
@@ -356,7 +388,7 @@
 
   (define (convert-with scale rest-n tempo)
     (printf "Tempo is ~v\n" tempo)
-    (chorded-song->commands
+    (chorded-song->commands*
      #:me
      (cons 0.25 tempo)
      #:ts ts
@@ -370,37 +402,6 @@
                          (select-from-list (list snare-drum1
                                                  snare-drum2))))
          (i:drum (vector #f #f #f)))
-     #:drum-measure
-     ;; xxx different drum for each part?
-     ;; xxx make this more robust
-     (cond
-      [(eq? ts ts:4:4)
-       (match ap
-         ['(#t #f #f #f)
-          (select-from-list
-           (list
-            (list (cons 0.125 1) (cons 0.125 0)
-                  (cons 0.125 0) (cons 0.125 0)
-                  (cons 0.125 0) (cons 0.125 0)
-                  (cons 0.125 0) (cons 0.125 0))
-            (list (cons 0.125 2) (cons 0.125 0)
-                  (cons 0.125 0) (cons 0.125 0)
-                  (cons 0.125 0) (cons 0.125 0)
-                  (cons 0.125 0) (cons 0.125 0))))]
-         [_
-          (select-from-list
-           (list
-            beat:alternating-on
-            beat:straight-rock
-            beat:duple-triplets
-            beat:double-time
-            beat:blast-beat
-            beat:funk-beat
-            beat:heavy-metal))])]
-      [(eq? ts ts:3:4)
-       (list (cons 0.125 1) (cons 0.125 0)
-             (cons 0.125 0) (cons 0.125 0)
-             (cons 0.125 0) (cons 0.125 0))])
      #:instruments
      ;; xxx generate this
      (let ()
@@ -420,7 +421,17 @@
      #:measures
      (append*
       (for/list ([p (in-list pattern)])
-        (force-lazy-scale/measures scale rest-n (hash-ref parts p))))))
+        (force-lazy-scale/measures scale rest-n (hash-ref parts p))))
+     #:drum-measures
+     (let ()
+       (define part->dms (make-hash))
+       (append*
+        (for/list ([p (in-list pattern)])
+          (hash-ref! part->dms p
+                     (λ ()
+                       (define dm (select-drum-measure ts ap))
+                       (define ms (hash-ref parts p))
+                       (for/list ([m (in-list ms)]) dm))))))))
 
   (when #f
     (list
@@ -430,11 +441,13 @@
      (convert scale-harmonic-minor 16 210)
      (convert (select-from-list scales)
               (and (zero? (random 2)) (+ 4 (random 8)))
-              (random 500))))
+              (+ 50 (random 400)))))
 
-  (convert scale-diatonic-major 8 140))
+  (convert (select-from-list scales)
+           (and (zero? (random 2)) (+ 4 (random 8)))
+           (+ 50 (random 400))))
 
-(module+ main
+(module+ main-x
   (play-one! (cmd:repeat (composition->track (bithoven)))))
 
 (define main-track

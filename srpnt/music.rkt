@@ -30,8 +30,6 @@
      (+ (cmd-length* a) (cmd-length* d))]
     [_
      1]))
-(define cmd:silence
-  (cmd:frame* #f #f #f #f #f #f))
 ;; xxx this is ugly, it would be better to change the drum code to
 ;; take in a variable frame count
 (define (cmd:ensure f c)
@@ -101,8 +99,6 @@
  cmd:frame*
  cmd:hold*
  cmd:hold*f
- cmd:silence
  cmd:ensure
- cmd-length*
  pulse-tone->period
  triangle-tone->period)

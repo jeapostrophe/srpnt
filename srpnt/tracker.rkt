@@ -33,7 +33,7 @@
          (values (fx- frames-remaining note-frames)
                  (fl- enote-frames.0 note-frames.0)
                  (fl+ note-total note)
-                 (cons (if arg 
+                 (cons (if arg
                            (instru note-frames arg)
                            (cmd:hold* note-frames #f))
                        l))))
@@ -83,12 +83,12 @@
 (define (song->commands #:me me #:ts ts parts)
   (combine-parts (map (λ (p) (part->semicmds me ts p)) parts)))
 
-(define (chorded-song->commands #:me me
-                                #:ts ts
-                                #:drum drum
-                                #:drum-measure dm
-                                #:instruments iv
-                                #:measures ms)
+(define (chorded-song->commands* #:me me
+                                 #:ts ts
+                                 #:drum drum
+                                 #:drum-measures dms
+                                 #:instruments iv
+                                 #:measures ms)
   (song->commands
    #:me me
    #:ts ts
@@ -109,9 +109,24 @@
                   [#f
                    (cons note #f)])))))
     (list (cons drum
-                (for/list ([m (in-list ms)]
-                           [i (in-naturals)])
-                  dm))))))
+                dms)))))
+
+(define (chorded-song->commands #:me me
+                                #:ts ts
+                                #:drum drum
+                                #:drum-measure dm
+                                #:instruments iv
+                                #:measures ms)
+  (define dms
+    (for/list ([m (in-list ms)]
+               [i (in-naturals)])
+      dm))
+  (chorded-song->commands* #:me me
+                           #:ts ts
+                           #:drum drum
+                           #:drum-measures dms
+                           #:instruments iv
+                           #:measures ms))
 
 ;; xxx look at http://famitracker.com/wiki/index.php?title=7xy and
 ;; http://nes-audio.com/manuals/nijuu/nijuu_manual.html for effects
