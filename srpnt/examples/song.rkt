@@ -4,6 +4,7 @@
          racket/fixnum
          racket/flonum
          racket/runtime-path
+         racket/math
          srpnt/music
          srpnt/music-theory
          srpnt/tracker
@@ -46,8 +47,10 @@
 ;;
 ;; Then, rather than actual compute the parameter, we return whether
 ;; the process is in stage 0, 1, 2, or 3 and what percentage through
-;; it you are.
-(define (adsr attack decay sustain release)
+;; it you are. Further, we will allow the user to specify which phase
+;; will fill extra space. [XXX Perhaps I should allow any combination
+;; of expanders?]
+(define (adsr expander attack decay sustain release)
   (define base (fx+ (fx+ attack decay) (fx+ sustain release)))
   (define base.0 (fx->fl base))
   (define-syntax-rule (define% attack% attack)
@@ -58,16 +61,20 @@
   (define% release% release)
   (λ (total-frames)
     (define total-frames.0 (fx->fl total-frames))
+    (define-syntax-rule (maybe-expand sustain attack decay release)
+      (if (eq? expander 'sustain)
+          (fx->fl (fx- total-frames (fx+ attack (fx+ decay release))))
+          (fx->fl sustain)))
     (define-values (attack-len.0 decay-len.0 sustain-len.0 release-len.0)
       (if (fx< total-frames base)
           (values (fl* attack% total-frames.0)
                   (fl* decay% total-frames.0)
                   (fl* sustain% total-frames.0)
                   (fl* release% total-frames.0))
-          (values (fx->fl attack)
-                  (fx->fl decay)
-                  (fx->fl (fx- total-frames (fx+ attack (fx+ decay release))))
-                  (fx->fl release))))
+          (values (maybe-expand attack decay sustain release)
+                  (maybe-expand decay attack sustain release)
+                  (maybe-expand sustain attack decay release)
+                  (maybe-expand release attack decay sustain))))
     (define attack-end.0 (fl+ 0.0 attack-len.0))
     (define decay-end.0 (fl+ attack-end.0 decay-len.0))
     (define sustain-end.0 (fl+ decay-end.0 sustain-len.0))
@@ -84,26 +91,44 @@
        [else
         (values 3 (fl/ (fl- frame-i.0 sustain-end.0) release-len.0))]))))
 
-(define (linear lo hi %)
-  (fx+ lo (fl->fx (flround (fl* % (fx->fl (fx- hi lo)))))))
+;; A linear interpolaction is ideal for traditional ADSR which is
+;; based on slopes
+
+(define (linear lo hi %.0)
+  (fx+ lo (fl->fx (flround (fl* %.0 (fx->fl (fx- hi lo)))))))
+
+;; Vibrato, tremolo, as well as duty cycle modulation in a similar
+;; framework are different oscillating effects
+
+(define (modulate freq.0 base extent %.0)
+  (define sx (flsin (fl* (fl/ freq.0 60.0) (fl* %.0 (fl* 2.0 pi)))))
+  (define diff (fl->fx (flround (fl* (fx->fl extent) sx))))
+  (fx+ base diff))
 
 (module+ test
   (require plot)
   (plot-new-window? #t)
-  (define borders (vector '(0 . 10) '(10 . 5) '(5 . 5) '(5 . 0)))
-  (define (plot-one x-max)
-    (define phase-f ((adsr 5 5 10 5) x-max))
-    (define (f x)
-      (with-handlers ([exn:fail? (λ (x) (displayln (exn-message x)))])
-        (define-values (which %) (phase-f (round x)))
-        (match-define (cons lo hi) (vector-ref borders which))
-        (linear lo hi %)))
-    (function f #:color x-max #:label (format "frames = ~a" x-max)))
-  (plot (list (plot-one 10)
-              (plot-one 25)
-              (plot-one 50))
-        #:x-min 0 #:x-max 50
-        #:y-min -1 #:y-max 11))
+  (when #f
+    (define (plot-one x-max)
+      (define borders (vector '(0 . 10) '(10 . 5) '(5 . 5) '(5 . 0)))
+      (define phase-f ((adsr 'sustain 5 5 10 5) x-max))
+      (define (f x)
+        (with-handlers ([exn:fail? (λ (x) (displayln (exn-message x)))])
+          (define-values (which %) (phase-f (round x)))
+          (match-define (cons lo hi) (vector-ref borders which))
+          (define v (linear lo hi %))
+          (if (= which 2)
+              (modulate 440.0 v 2 %)
+              v)))
+      (function f #:color x-max #:label (format "frames = ~a" x-max)))
+    (plot (list #;(plot-one 10)
+                (plot-one 25)
+                #;(plot-one 50))
+          #:x-min 0 #:x-max 50
+          #:y-min 0)
+    (plot (function (λ (t) (* 2 (sin (* 2 pi (/ 440 60) (/ t 100))))))
+          #:x-min 0 #:x-max 100)))
+
 
 ;; 3, 4, 8 sound good
 ;; 9 is crunchy
