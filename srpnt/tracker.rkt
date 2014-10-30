@@ -38,8 +38,8 @@
                            (cmd:hold* note-frames #f))
                        l))))
      (unless (fl< (flabs (fl- bar-notes-goal notes-total)) 0.000001)
-       (error 'part->semicmds "Notes did not fill measure: ~v should be ~v"
-              notes-total bar-notes-goal))
+       (error 'part->semicmds "Notes did not fill measure: ~v should be ~v for ~v"
+              notes-total bar-notes-goal notes))
      (unless (fx= 0 left-overs)
        (error 'part->semicmds "Did not exactly consume frames: ~v\n" left-overs))
      (reverse l))))

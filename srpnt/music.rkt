@@ -39,7 +39,7 @@
   (define r
     (if (fx<= clen f)
         (cons c (cmd:hold* (fxmax 0 (fx- f clen)) #f))
-        (take (flatten c) f)))
+        (take (flatten c) (max 0 f))))
   r)
 
 (define-runtime-path keys-path "keys.txt")

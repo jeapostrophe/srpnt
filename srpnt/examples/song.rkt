@@ -560,49 +560,61 @@
          (i:drum (vector #f #f #f)))
      #:drum-measure
      ;; xxx make this more robust
-     (match ap
-       ['(#t #f #f #f)
-        (select-from-list
-         (list
-          (list (cons 0.125 1) (cons 0.125 0)
-                (cons 0.125 0) (cons 0.125 0)
-                (cons 0.125 0) (cons 0.125 0)
-                (cons 0.125 0) (cons 0.125 0))
-          (list (cons 0.125 2) (cons 0.125 0)
-                (cons 0.125 0) (cons 0.125 0)
-                (cons 0.125 0) (cons 0.125 0)
-                (cons 0.125 0) (cons 0.125 0))))]
-       [_
-        (select-from-list
-         (list
-          beat:alternating-on
-          beat:straight-rock
-          beat:duple-triplets
-          beat:double-time
-          beat:blast-beat
-          beat:funk-beat
-          beat:heavy-metal))])
+     (cond
+      [(eq? ts ts:4:4)
+       (match ap
+         ['(#t #f #f #f)
+          (select-from-list
+           (list
+            (list (cons 0.125 1) (cons 0.125 0)
+                  (cons 0.125 0) (cons 0.125 0)
+                  (cons 0.125 0) (cons 0.125 0)
+                  (cons 0.125 0) (cons 0.125 0))
+            (list (cons 0.125 2) (cons 0.125 0)
+                  (cons 0.125 0) (cons 0.125 0)
+                  (cons 0.125 0) (cons 0.125 0)
+                  (cons 0.125 0) (cons 0.125 0))))]
+         [_
+          (select-from-list
+           (list
+            beat:alternating-on
+            beat:straight-rock
+            beat:duple-triplets
+            beat:double-time
+            beat:blast-beat
+            beat:funk-beat
+            beat:heavy-metal))])]
+      [(eq? ts ts:3:4)
+       (list (cons 0.125 1) (cons 0.125 0)
+             (cons 0.125 0) (cons 0.125 0)
+             (cons 0.125 0) (cons 0.125 0))])
      #:instruments
      ;; xxx generate this
-     (vector (cons (if (zero? (random 2))
-                       (i:pulse (+ 1 (random 2)) 6)
-                       (i:pulse-plucky 0.25 (+ 1 (random 2)) 6))
-                   (fx+ base-octave 1))
-             (cons (if (zero? (random 2))
-                       (i:pulse (+ 1 (random 2)) 6)
-                       (i:pulse-slow-mod 16 (+ 1 (random 2)) 6))
-                   base-octave)
-             (cons (i:triangle) (fx- base-octave 1)))
+     (let ()
+       (match-define
+        (list melody harmony bass)
+        (shuffle
+         (list (if (zero? (random 2))
+                   (i:pulse (+ 1 (random 2)) 6)
+                   (i:pulse-plucky 0.25 (+ 1 (random 2)) 6))
+               (if (zero? (random 2))
+                   (i:pulse (+ 1 (random 2)) 6)
+                   (i:pulse-slow-mod 16 (+ 1 (random 2)) 6))
+               (i:triangle))))
+       (vector (cons melody (fx+ base-octave 1))
+               (cons harmony base-octave)
+               (cons bass (fx- base-octave 1))))
      #:measures
      (append*
       (for/list ([p (in-list pattern)])
         (force-lazy-scale/measures scale rest-n (hash-ref parts p))))))
 
-  (list (convert scale-diatonic-major 8 280)
+  (list #;(convert scale-diatonic-major 8 480)
+        #;(convert scale-diatonic-major 8 280)
         (convert scale-diatonic-major 8 140)
-        (convert scale-diminished #f 70)
-        (convert scale-blues 16 210)
-        (convert (select-from-list scales)
+        #;(convert scale-diminished #f 90)
+        #;(convert scale-harmonic-minor 16 210)
+        #;(convert (select-from-list scales)
                  (and (zero? (random 2)) (+ 4 (random 8)))
                  (random 500))))
 
