@@ -427,7 +427,7 @@
                phrase2
                phrase1)))))
 
-(require "../../bithoven.rkt")
+(require srpnt/bithoven)
 
 (define (force-lazy-scale/tones scale rest? tones)
   (for/list ([t*o (in-list tones)]
