@@ -6,91 +6,21 @@
          racket/runtime-path
          srpnt/music
          srpnt/music-theory
-         srpnt/tracker)
+         srpnt/tracker
+         srpnt/bithoven)
 (module+ test
   (require rackunit))
 
 (define-runtime-path clip-path "clip.raw.gz")
 (define sample-bs (read-sample/gzip 0 4 clip-path))
-
-(define bad-dudes-ex
-  (cmd:hold* 10
-             (cons
-              (cmd:hold*f 40
-                          (λ (f)
-                            (cmd:frame* (wave:pulse (modulo f 3)
-                                                    (pulse-freq->period 261.626)
-                                                    7)
-                                        #f #f #f #f #f)))
-              (cmd:hold* 20
-                         (cmd:frame* #f #f #f #f #f #f)))))
-
-(define alien3-example
-  (cmd:hold* 10
-             (cons
-              (for/list ([vol (in-list (list 0 7 6 5 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 0))]
-                         [dperiod (in-list (list -1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3 4 4 -3 -4 -4 -3 -4 -4 3 4 4 3 4 4 -3 -4 -4 -3 -4 -4 3 4 4 -3 -4 -4 -3))]
-                         [duty (in-list (list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1  0 0 0 0 0 0 0 0 1))])
-                (cmd:frame* (wave:pulse duty
-                                        (+ (pulse-freq->period 261.626) dperiod)
-                                        vol)
-                            #f #f #f #f #f))
-              (cmd:hold* 20
-                         (cmd:frame* #f #f #f #f #f #f)))))
-
-(define gremlins2-example
-  (cmd:hold* 10
-             (list*
-              (cmd:frame* (wave:pulse 2 (pulse-freq->period 261.626) 12)
-                          #f #f #f #f #f)
-              (cmd:hold* 3
-                         (cmd:frame* (wave:pulse 1 (pulse-freq->period 261.626) 12)
-                                     #f #f #f #f #f))
-              (cmd:hold* 4
-                         (cmd:frame* (wave:pulse 1 (pulse-freq->period 261.626) 11)
-                                     #f #f #f #f #f))
-              (cmd:hold* 4
-                         (cmd:frame* (wave:pulse 1 (pulse-freq->period 261.626) 1)
-                                     #f #f #f #f #f))
-              (cmd:hold* 4
-                         (cmd:frame* (wave:pulse 1 (pulse-freq->period 261.626) 3)
-                                     #f #f #f #f #f))
-              (cmd:hold* 16
-                         (cmd:frame* #f #f #f #f #f #f)))))
-
-(define noise-test-suite
-  (for*/list ([short? (in-list (list #f #t))]
-              [noise-p (in-range 16)])
-    (cmd:hold* 15
-               (cmd:frame* #f #f #f
-                           (wave:noise short? noise-p 4)
-                           #f #f))))
-
-(define initial-test
-  (list*
-   (cmd:hold* 30
-              (cmd:frame* (wave:pulse 0 (pulse-freq->period 261.626) 4)
-                          #f #f #f #f #f))
-   (cmd:hold* 30
-              (cmd:frame* #f
-                          (wave:pulse 2 (pulse-freq->period 440.00) 4)
-                          #f #f #f #f))
-   (cmd:hold* 15
-              (cmd:frame* #f #f
-                          (wave:triangle #t (triangle-freq->period 440.00))
-                          #f #f #f))
-   (cmd:hold* 15
-              (cmd:frame* #f #f #f
-                          (wave:noise #f 0 4)
-                          #f #f))
-   ;; XXX This is not a convenient interface, need a way to
-   ;; fuse a DMC across the other frames
-   (cmd:hold*f 55
-               (λ (f)
-                 (define s (fx* f samples-per-buffer))
-                 (cmd:frame* #f #f #f #f
-                             (wave:dmc sample-bs s)
-                             #f)))))
+;; XXX This is not a convenient interface, need a way to
+;; fuse a DMC across the other frames
+(cmd:hold*f 55
+            (λ (f)
+              (define s (fx* f samples-per-buffer))
+              (cmd:frame* #f #f #f #f
+                          (wave:dmc sample-bs s)
+                          #f)))
 
 ;; 3, 4, 8 sound good
 ;; 9 is crunchy
@@ -205,122 +135,6 @@
     (define which (vector-ref which-v which-n))
     (cmd:ensure frames which)))
 
-(define example-song
-  (song->commands
-   #:me (cons 0.25 160)
-   #:ts ts:4:4
-   (list
-    (cons (i:pulse-plucky 0.25 2 8)
-          (list
-           (list (list* 0.25 'C4 #f)
-                 (list* 0.25 'E4 #t)
-                 (list* 0.25 'G4 #f)
-                 (list* 0.25 'A4 #f))))
-    (cons (i:pulse-slow-mod 16 2 4)
-          (list
-           (list (list* 0.25 'E4 #f)
-                 (list* 0.25 'G4 #f)
-                 (list* 0.25 'A4 #f)
-                 (list* 0.25 'C4 #t))))
-    (cons (i:triangle)
-          (list
-           (list (list* 0.25 'G3 #f)
-                 (list* 0.25 'A3 #f)
-                 (list* 0.25 'C3 #f)
-                 (list* 0.25 'E3 #f))))
-    (cons (i:drum (vector closed-hihat
-                          bass-drum
-                          snare-drum2))
-          (list
-           (list (cons 0.125 0)
-                 (cons 0.125 0)
-                 (cons 0.125 1)
-                 (cons 0.125 0)
-                 (cons 0.125 0)
-                 (cons 0.125 0)
-                 (cons 0.125 2)
-                 (cons 0.125 0)))))))
-
-(define libbys-song
-  (let ()
-    (define s
-      (scale-diatonic-major 'C))
-    (define base-octave 4)
-    (chorded-song->commands
-     #:me (cons 0.25 140)
-     #:ts ts:4:4
-     #:drum (i:drum (vector closed-hihat
-                            bass-drum
-                            snare-drum2))
-     #:drum-measure
-     (list (cons 0.125 0)
-           (cons 0.125 0)
-           (cons 0.125 1)
-           (cons 0.125 0)
-           (cons 0.125 0)
-           (cons 0.125 0)
-           (cons 0.125 2)
-           (cons 0.125 0))
-     #:instruments
-     (vector (cons (i:pulse-plucky 0.25 2 8) (fx+ base-octave 2))
-             (cons (i:pulse-slow-mod 16 2 4) base-octave)
-             (cons (i:triangle) (fx- base-octave 2)))
-     #:measures
-     (list
-      ;; Line 1
-      (list
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 1) #t)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 2) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 3) #t))
-      (list
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 1) #t)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 2) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 3) #t))
-      (list
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 1) #t)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 2) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 3) #t))
-      ;; Line 2
-      (list
-       (list* 0.25 (octave-delta (chord-inversion (chord-seventh (mode s 0)) 0) 1) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 2) #t)
-       (list* 0.50 (chord-inversion (chord-seventh (mode s 0)) 0) #f))
-      (list
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 5)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 5)) 1) #t)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 2) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 3) #t))
-      (list
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 1) #t)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 1) #t))
-      ;; Line 3
-      (list
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 0)) 2) #t)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 2)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 2)) 2) #t))
-      (list
-       (list* 0.50 (chord-inversion (chord-seventh (mode s 5)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 2) #t)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 1)) 3) #f))
-      (list
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 0) #f)
-       (list* 0.25 (chord-inversion (chord-seventh (mode s 4)) 1) #t)
-       (list* 0.50 (chord-inversion (chord-seventh (mode s 4)) 2) #f))))))
-
-(module+ test
-  (printf "0.75 is ~a\n"
-          (frames-in-note (cons 0.25 116) 0.75))
-  (printf "0.125 is ~a\n"
-          (frames-in-note (cons 0.25 116) 0.125))
-  (printf "6*0.125 is ~a\n"
-          (* 6 (frames-in-note (cons 0.25 116) 0.125))))
-
 (define 237:Do-What-Is-Right
   (let ()
     (define s
@@ -426,8 +240,6 @@
                phrase1
                phrase2
                phrase1)))))
-
-(require srpnt/bithoven)
 
 (define (force-lazy-scale/tones scale rest? tones)
   (for/list ([t*o (in-list tones)]
@@ -559,6 +371,7 @@
                                                  snare-drum2))))
          (i:drum (vector #f #f #f)))
      #:drum-measure
+     ;; xxx different drum for each part?
      ;; xxx make this more robust
      (cond
       [(eq? ts ts:4:4)
@@ -609,14 +422,17 @@
       (for/list ([p (in-list pattern)])
         (force-lazy-scale/measures scale rest-n (hash-ref parts p))))))
 
-  (list #;(convert scale-diatonic-major 8 480)
-        #;(convert scale-diatonic-major 8 280)
-        (convert scale-diatonic-major 8 140)
-        #;(convert scale-diminished #f 90)
-        #;(convert scale-harmonic-minor 16 210)
-        #;(convert (select-from-list scales)
-                 (and (zero? (random 2)) (+ 4 (random 8)))
-                 (random 500))))
+  (when #f
+    (list
+     (convert scale-diatonic-major 8 480)
+     (convert scale-diatonic-major 8 280)
+     (convert scale-diminished #f 90)
+     (convert scale-harmonic-minor 16 210)
+     (convert (select-from-list scales)
+              (and (zero? (random 2)) (+ 4 (random 8)))
+              (random 500))))
+
+  (convert scale-diatonic-major 8 140))
 
 (module+ main
   (play-one! (cmd:repeat (composition->track (bithoven)))))
