@@ -22,6 +22,8 @@
    (hash-ref
     (hash
      time-sig/ts:4:4
+     ;; xxx #t means "accented" and "can be the start of a chord
+     ;; change", but the second thing isn't correctly used
      (list (accent-pattern "standard"  1 '(#t #f #f #f))
            (accent-pattern "on-beats"  2 '(#t #f #t #f))
            (accent-pattern "off-beats" 2 '(#f #t #f #t))))
@@ -94,7 +96,6 @@
 ;; xxx Should look at https://en.wikipedia.org/wiki/List_of_chord_progressions
 ;; From https://en.wikipedia.org/wiki/Chord_progression
 
-;; xxx can't select one that is longer than notes/accents in part
 ;; xxx i should change this to allow me to write it roman numeral analysis
 (define (select-chord-progression)
   (select-from-list
@@ -147,7 +148,6 @@
 (define (sum l)
   (foldr + 0 l))
 
-;; xxx actually should be compatible with accent pattern/time sig
 ;; xxx this could be better defined by selecting a permutation
 (define (select-progress-divison chords)
   (select-from-list
@@ -178,7 +178,9 @@
               ([cd (in-list factors)]
                [i (in-naturals)])
       (define en (fl+ frag (exact->inexact (* cd total))))
-      (define an (flmax 1.0 (flfloor en)))
+      (define an (flmax 1.0
+                        (flmin (flfloor en)
+                               (fx->fl (fx- rem (fx- (length factors) i))))))
       (define n
         (if (fx= i (fx- (length factors) 1))
             rem
@@ -196,6 +198,8 @@
   (check-equal? (apply-factors-and-ensure-sum 16 '(1/3 1/3 1/3))
                 '(5 5 6))
   (check-equal? (apply-factors-and-ensure-sum 4 '(1/6 1/6 7/12 1/12))
+                '(1 1 1 1))
+  (check-equal? (apply-factors-and-ensure-sum 4 '(1/4 1/2 1/8 1/8))
                 '(1 1 1 1)))
 
 ;; per chord phrase / measure
@@ -233,19 +237,17 @@
                    rem l))
           l)))))
 
-;; xxx select chord note sequence of melody
-;; xxx select matching notes of harmony
-;; xxx select matching notes of bass
-
-;; per play
-;; xxx select bpm
-
-(define (split-into-measures ts ns)
-  ;; xxx generalize
+(define (accentify a a?)
+  (match-define (vector note middle) a)
+  (list* note middle a?))
+;; xxx generalize to non-4/4 and non-quarter notes
+(define (split-into-measures ts ap ns)
+  (match-define (accent-pattern _ _ (list a? b? c? d?)) ap)
   (let loop ([ns ns])
     (match ns
       [(list* a b c d more)
-       (cons (list a b c d) (loop more))]
+       (cons (list (accentify a a?) (accentify b b?) (accentify c c?) (accentify d d?))
+             (loop more))]
       ['() '()])))
 
 (define (bithoven)
@@ -279,7 +281,7 @@
   (define parts
     (for/hasheq ([p (in-list (form-part-lens f))])
       (match-define (cons label len) p)
-      (define pd (select-progress-divison (length cp-s)))      
+      (define pd (select-progress-divison (length cp-s)))
       (for ([a-pd (in-list pd)])
         (when (zero? a-pd)
           (error 'bithoven
@@ -299,11 +301,10 @@
       (printf "Rhythm: ~v x ~v => ~v\n" ts chord-pulses chord-rhythm)
       (define chord-track
         (split-into-measures
-         ts
+         ts ap
          (append*
           (for/list ([chord (in-list cp-s)]
                      [rhythm (in-list chord-rhythm)])
-            ;; xxx don't always do triad?
             (define tones (chord-triad (mode scale chord)))
             (for/list ([r (in-list rhythm)])
               (define melody (select-from-list tones))
@@ -318,11 +319,10 @@
                        btones tones))
               (define bass
                 (select-from-list allowed-bass-notes))
-              ;; xxx correct accent
-              (list* r (list melody harmony bass) #f))))))
+              (vector r (list melody harmony bass)))))))
       (values label
               chord-track)))
-  (vector (time-sig-ts ts) (form-pattern f) parts))
+  (vector (time-sig-ts ts) (accent-pattern-accents ap) (form-pattern f) parts))
 
 (module+ test
   (require racket/pretty)

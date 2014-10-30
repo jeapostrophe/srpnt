@@ -33,8 +33,11 @@
          (values (fx- frames-remaining note-frames)
                  (fl- enote-frames.0 note-frames.0)
                  (fl+ note-total note)
-                 (cons (instru note-frames arg) l))))
-     (unless (fl= bar-notes-goal notes-total)
+                 (cons (if arg 
+                           (instru note-frames arg)
+                           (cmd:hold* note-frames #f))
+                       l))))
+     (unless (fl< (flabs (fl- bar-notes-goal notes-total)) 0.000001)
        (error 'part->semicmds "Notes did not fill measure: ~v should be ~v"
               notes-total bar-notes-goal))
      (unless (fx= 0 left-overs)
@@ -97,11 +100,14 @@
             (for/list ([m (in-list ms)])
               (for/list ([n (in-list m)])
                 (match-define (list* note tones accent?) n)
-                (match-define (cons tone-name note-doctave) (list-ref tones in))
-                (define tone
-                  (string->symbol
-                   (format "~a~a" tone-name (+ inst-octave note-doctave))))
-                (list* note tone accent?)))))
+                (match (list-ref tones in)
+                  [(cons tone-name note-doctave)
+                   (define tone
+                     (string->symbol
+                      (format "~a~a" tone-name (+ inst-octave note-doctave))))
+                   (list* note tone accent?)]
+                  [#f
+                   (cons note #f)])))))
     (list (cons drum
                 (for/list ([m (in-list ms)]
                            [i (in-naturals)])

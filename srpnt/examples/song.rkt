@@ -429,38 +429,120 @@
 
 (require "../../bithoven.rkt")
 
-(define (force-lazy-scale/tones scale tones)
-  (for/list ([t*o (in-list tones)])
-    (match-define (cons off t-oct) t*o)
-    (match-define (cons tone s-oct) (list-ref/modify modify/octave scale off))
-    (cons tone (fx+ t-oct s-oct))))
-(define (force-lazy-scale/measures scale ms)
+(define (force-lazy-scale/tones scale rest? tones)
+  (for/list ([t*o (in-list tones)]
+             [can-be-rest? (in-list (list #t #t #f))])
+    (if (and can-be-rest? rest?)
+        #f
+        (match t*o
+          [#f
+           #f]
+          [(cons off t-oct)
+           (match-define (cons tone s-oct) (list-ref/modify modify/octave scale off))
+           (cons tone (fx+ t-oct s-oct))]))))
+(define (force-lazy-scale/measures scale rest-n ms)
   (for/list ([ns (in-list ms)])
     (for/list ([n (in-list ns)])
       (match-define (list* note tones more) n)
-      (list* note (force-lazy-scale/tones scale tones) more))))
+      (define rest? (and rest-n (zero? (random rest-n))))
+      (list* note (force-lazy-scale/tones scale rest? tones) more))))
+
+;; xxx get more from here: http://en.wikipedia.org/wiki/Drum_beat
+(define beat:heavy-metal
+  (list (cons 0.125 1)
+        (cons 0.0625 1)
+        (cons 0.0625 1)
+        (cons 0.125 2)
+        (cons 0.0625 1)
+        (cons 0.0625 1)
+        (cons 0.125 1)
+        (cons 0.0625 1)
+        (cons 0.0625 1)
+        (cons 0.125 2)
+        (cons 0.0625 1)
+        (cons 0.0625 1)))
+(define beat:blast-beat
+  (list (cons 0.125 1)
+        (cons 0.125 2)
+        (cons 0.125 1)
+        (cons 0.125 2)
+        (cons 0.125 1)
+        (cons 0.125 2)
+        (cons 0.125 1)
+        (cons 0.125 2)))
+(define beat:funk-beat
+  (list (cons 0.125 1)
+        (cons 0.125 0)
+        (cons 0.125 2)
+        (cons 0.125 0)
+        (cons 0.125 1)
+        (cons 0.125 1)
+        (cons 0.125 0)
+        (cons 0.125 2)))
+(define beat:double-time
+  (list (cons 0.0625 1)
+        (cons 0.0625 0)
+        (cons 0.0625 2)
+        (cons 0.0625 0)
+        (cons 0.0625 1)
+        (cons 0.0625 0)
+        (cons 0.0625 2)
+        (cons 0.0625 0)
+        (cons 0.0625 1)
+        (cons 0.0625 0)
+        (cons 0.0625 2)
+        (cons 0.0625 0)
+        (cons 0.0625 1)
+        (cons 0.0625 0)
+        (cons 0.0625 2)
+        (cons 0.0625 0)))
+(define beat:straight-rock
+  (list (cons 0.125 1)
+        (cons 0.125 0)
+        (cons 0.125 2)
+        (cons 0.125 0)
+        (cons 0.125 1)
+        (cons 0.125 0)
+        (cons 0.125 2)
+        (cons 0.125 0)))
+(define beat:alternating-on
+  (list (cons 0.125 0)
+        (cons 0.125 0)
+        (cons 0.125 1)
+        (cons 0.125 0)
+        (cons 0.125 0)
+        (cons 0.125 0)
+        (cons 0.125 2)
+        (cons 0.125 0)))
+(define beat:duple-triplets
+  (list (cons 0.125 1)
+        (cons 0.0625 0)
+        (cons 0.0625 0)
+        (cons 0.125 2)
+        (cons 0.0625 0)
+        (cons 0.0625 0)
+        (cons 0.125 1)
+        (cons 0.0625 0)
+        (cons 0.0625 0)
+        (cons 0.125 2)
+        (cons 0.0625 0)
+        (cons 0.0625 0)))
 
 (define (composition->track c)
-  (define scale-kind 
-    scale-diatonic-major
-    #;
-    (select-from-list scales))
-  (define scale-root (select-from-list tone-names))
-  (define scale (scale-kind scale-root))
+  (define (convert scale-kind rest-n tempo)
+    (define scale-root (select-from-list tone-names))
+    (define scale (scale-kind scale-root))
+    (convert-with scale rest-n tempo))
 
   (let ()
     (local-require racket/pretty)
     (pretty-print c))
-  (match-define (vector ts pattern parts) c)
-  (let ()
-    ;; xxx choose this (and make sure every instrument can play the notes)
-    (define base-octave (+ 2 (random 2)))
-    ;; xxx select this
-    (define tempo
-      (random 500)
-      #;
-      (select-from-list
-      '(500 360 300 180 170 160 140 135 118 120 115 80 200 280 45 350)))
+
+  (match-define (vector ts ap pattern parts) c)
+  ;; xxx choose this (and make sure every instrument can play the notes)
+  (define base-octave 3)
+
+  (define (convert-with scale rest-n tempo)
     (printf "Tempo is ~v\n" tempo)
     (chorded-song->commands
      #:me
@@ -477,109 +559,29 @@
                                                  snare-drum2))))
          (i:drum (vector #f #f #f)))
      #:drum-measure
-     ;; http://en.wikipedia.org/wiki/Drum_beat
-     ;; xxx generate this
-     (select-from-list
-      (list
-       ;; simple
-       (list (cons 0.125 0)
-             (cons 0.125 0)
-             (cons 0.125 1)
-             (cons 0.125 0)
-             (cons 0.125 0)
-             (cons 0.125 0)
-             (cons 0.125 2)
-             (cons 0.125 0))
-       ;; straight blues/rock groove
-       (list (cons 0.125 1)
-             (cons 0.125 0)
-             (cons 0.125 2)
-             (cons 0.125 0)
-             (cons 0.125 1)
-             (cons 0.125 0)
-             (cons 0.125 2)
-             (cons 0.125 0))
-       ;; duple drum pattern with triplets
-       (list (cons 0.125 1)
-             (cons 0.0625 0)
-             (cons 0.0625 0)
-             (cons 0.125 2)
-             (cons 0.0625 0)
-             (cons 0.0625 0)
-             (cons 0.125 1)
-             (cons 0.0625 0)
-             (cons 0.0625 0)
-             (cons 0.125 2)
-             (cons 0.0625 0)
-             (cons 0.0625 0))
-       ;; with fill
-       (list (cons 0.125 1)
-             (cons 0.125 0)
-             (cons 0.125 2)
-             (cons 0.125 0)
-             (cons 0.125 1)
-             (cons 0.125 0)
-             (cons 0.125 2)
-             (cons 0.0625 2)
-             (cons 0.0625 2))
-       ;; without fill
-          (list (cons 0.125 1)
-                (cons 0.125 0)
-                (cons 0.125 2)
-                (cons 0.125 0)
-                (cons 0.125 1)
-                (cons 0.125 1)
-                (cons 0.125 2)
-                (cons 0.125 0))
-          ;; double time
-             (list (cons 0.0625 1)
-                   (cons 0.0625 0)
-                   (cons 0.0625 2)
-                   (cons 0.0625 0)
-                   (cons 0.0625 1)
-                   (cons 0.0625 0)
-                   (cons 0.0625 2)
-                   (cons 0.0625 0)
-                   (cons 0.0625 1)
-                   (cons 0.0625 0)
-                   (cons 0.0625 2)
-                   (cons 0.0625 0)
-                   (cons 0.0625 1)
-                   (cons 0.0625 0)
-                   (cons 0.0625 2)
-                   (cons 0.0625 0))
-             ;; blast beat
-                (list (cons 0.125 1)
-                      (cons 0.125 2)
-                      (cons 0.125 1)
-                      (cons 0.125 2)
-                      (cons 0.125 1)
-                      (cons 0.125 2)
-                      (cons 0.125 1)
-                      (cons 0.125 2))
-                ;; funk beat / delayed backbeat
-                   (list (cons 0.125 1)
-                         (cons 0.125 0)
-                         (cons 0.125 2)
-                         (cons 0.125 0)
-                         (cons 0.125 1)
-                         (cons 0.125 1)
-                         (cons 0.125 0)
-                         (cons 0.125 2))
-                   ;; heavy metal gallop
-                   (list (cons 0.125 1)
-                         (cons 0.0625 1)
-                         (cons 0.0625 1)
-                         (cons 0.125 2)
-                         (cons 0.0625 1)
-                         (cons 0.0625 1)
-                         (cons 0.125 1)
-                         (cons 0.0625 1)
-                         (cons 0.0625 1)
-                         (cons 0.125 2)
-                         (cons 0.0625 1)
-                         (cons 0.0625 1))
-                   ))
+     ;; xxx make this more robust
+     (match ap
+       ['(#t #f #f #f)
+        (select-from-list
+         (list
+          (list (cons 0.125 1) (cons 0.125 0)
+                (cons 0.125 0) (cons 0.125 0)
+                (cons 0.125 0) (cons 0.125 0)
+                (cons 0.125 0) (cons 0.125 0))
+          (list (cons 0.125 2) (cons 0.125 0)
+                (cons 0.125 0) (cons 0.125 0)
+                (cons 0.125 0) (cons 0.125 0)
+                (cons 0.125 0) (cons 0.125 0))))]
+       [_
+        (select-from-list
+         (list
+          beat:alternating-on
+          beat:straight-rock
+          beat:duple-triplets
+          beat:double-time
+          beat:blast-beat
+          beat:funk-beat
+          beat:heavy-metal))])
      #:instruments
      ;; xxx generate this
      (vector (cons (if (zero? (random 2))
@@ -590,11 +592,19 @@
                        (i:pulse (+ 1 (random 2)) 6)
                        (i:pulse-slow-mod 16 (+ 1 (random 2)) 6))
                    base-octave)
-             (cons (i:triangle) (fx- base-octave 2)))
+             (cons (i:triangle) (fx- base-octave 1)))
      #:measures
      (append*
       (for/list ([p (in-list pattern)])
-        (force-lazy-scale/measures scale (hash-ref parts p)))))))
+        (force-lazy-scale/measures scale rest-n (hash-ref parts p))))))
+
+  (list (convert scale-diatonic-major 8 480)
+        (convert scale-diatonic-major 8 140)
+        (convert scale-diminished #f 70)
+        (convert scale-blues 16 210)
+        (convert (select-from-list scales)
+                 (and (zero? (random 2)) (+ 4 (random 8)))
+                 (random 500))))
 
 (module+ main
   (play-one! (cmd:repeat (composition->track (bithoven)))))
