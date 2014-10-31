@@ -129,6 +129,101 @@
     (plot (function (λ (t) (* 2 (sin (* 2 pi (/ 440 60) (/ t 100))))))
           #:x-min 0 #:x-max 100)))
 
+(struct spec ())
+(struct spec:constant spec (v))
+(struct spec:adsr spec (expander a as d ds s ss r rs))
+(struct spec:linear spec (lo hi))
+(struct spec:apply spec (f ns))
+(struct spec:modulate spec (freq base extent))
+(struct staged ())
+(struct staged:adsr spec (fun map))
+(define (stage-spec s f)
+  (match s
+    [(spec:adsr e a as d ds s ss r rs)
+     (staged:adsr ((adsr e a d s r) f) (vector as ds ss rs))]
+    [_ s]))
+(define (eval-spec s f)
+  (match s
+    [(staged:adsr adsr map)
+     (define-values (which %) (adsr f))
+     (eval-spec (vector-ref map which) %)]
+    [(spec:constant v)
+     v]
+    [(spec:apply fun ns)
+     (eval-spec ns (fun f))]
+    [(spec:modulate freq base extent)
+     (modulate freq base extent f)]
+    [(spec:linear lo hi)
+     (linear lo hi f)]))
+
+(define (i:pulse/spec #:duty dspec #:period pspec #:volume vspec)
+  (λ (frames tone*accent?)
+    (define d* (stage-spec dspec frames))
+    (define p* (stage-spec pspec frames))
+    (define v* (stage-spec vspec frames))
+    (match-define (cons tone accent?) tone*accent?)
+    (define base-per (pulse-tone->period tone))
+    (define base-volume (if accent? 1 0))
+    (for/list ([f (in-range frames)])
+      (define duty (fxmin 3 (fxmax 0 (eval-spec d* f))))
+      (define per (fx+ base-per (eval-spec p* f)))
+      (define volume (fxmin 15 (fxmax 0 (fx+ base-volume (eval-spec v* f)))))
+      (wave:pulse duty per volume))))
+
+(define (i:triangle/spec #:period pspec)
+  (λ (frames tone*accent?)
+    (define p* (stage-spec pspec frames))
+    (match-define (cons tone accent?) tone*accent?)
+    (define base-per (triangle-tone->period tone))
+    (for/list ([f (in-range frames)])
+      (define per (fx+ base-per (eval-spec p* f)))
+      (wave:triangle #t per))))
+
+(define (i:drum/spec #:mode mspec #:period pspec #:volume vspec)
+  (λ (frames)
+    (define m* (stage-spec mspec frames))
+    (define p* (stage-spec pspec frames))
+    (define v* (stage-spec vspec frames))
+    (for/list ([f (in-range frames)])
+      (define short? (eval-spec m* f))
+      (define per (eval-spec p* f))
+      (define volume (fxmin 15 (fxmax 0 (eval-spec v* f))))
+      (wave:noise short? per volume))))
+
+;; xxx look up better formulas?
+(define i:drum:hihat
+  (i:drum/spec #:mode (spec:constant #f)
+               #:period (spec:constant #xC)
+               #:volume
+               (spec:adsr 'release
+                          1 (spec:constant 4)
+                          2 (spec:constant 3)
+                          4 (spec:constant 2)
+                          4 (spec:constant 0))))
+
+(define i:drum:bass
+  (i:drum/spec #:mode (spec:constant #f)
+               #:period (spec:constant 9)
+               #:volume
+               (spec:adsr 'release
+                          1 (spec:constant 10)
+                          2 (spec:constant 7)
+                          4 (spec:linear 4 2)
+                          4 (spec:constant 0))))
+
+(define i:drum:snare
+  (i:drum/spec #:mode (spec:constant #f)
+               #:period (spec:constant 7)
+               #:volume
+               (spec:adsr 'release
+                          1 (spec:constant 11)
+                          4 (spec:linear 11 6)
+                          8 (spec:linear 6 2)
+                          4 (spec:constant 0))))
+
+(define (i:drums drums)
+  (λ (frames which-n)
+    ((vector-ref drums which-n) frames)))
 
 ;; 3, 4, 8 sound good
 ;; 9 is crunchy
@@ -419,14 +514,20 @@
      #:ts ts
      #:drum
      ;; xxx generate this
-     (if (< 80 tempo 170)
-         (i:drum (vector (select-from-list (list closed-hihat
-                                                 open-hihat
-                                                 loose-hihat))
-                         bass-drum
-                         (select-from-list (list snare-drum1
-                                                 snare-drum2))))
-         (i:drum (vector #f #f #f)))
+     (cond
+      [#t
+       (i:drums (vector i:drum:hihat
+                        i:drum:bass
+                        i:drum:snare))]
+      [(< 80 tempo 170)
+       (i:drum (vector (select-from-list (list closed-hihat
+                                               open-hihat
+                                               loose-hihat))
+                       bass-drum
+                       (select-from-list (list snare-drum1
+                                               snare-drum2))))]
+      [else
+       (i:drum (vector #f #f #f))])
      #:instruments
      ;; xxx generate this
      (let ()
@@ -434,61 +535,61 @@
         (list melody harmony bass)
         (cond
          [#t
-          (struct spec ())
-          (struct spec:constant spec (v))
-          (struct spec:adsr spec (expander a as d ds s ss r rs))
-          (struct spec:linear spec (lo hi))
-          (struct spec:apply spec (f ns))
-          (struct spec:modulate spec (freq base extent))
-          (struct staged ())
-          (struct staged:adsr spec (fun map))
-          (define (stage-spec s f)
-            (match s
-              [(spec:adsr e a as d ds s ss r rs)
-               (staged:adsr ((adsr e a d s r) f) (vector as ds ss rs))]
-              [_ s]))
-          (define (eval-spec s f)
-            (match s
-              [(staged:adsr adsr map)
-               (define-values (which %) (adsr f))
-               (eval-spec (vector-ref map which) %)]
-              [(spec:constant v)
-               v]
-              [(spec:apply fun ns)
-               (eval-spec ns (fun f))]
-              [(spec:modulate freq base extent)
-               (modulate freq base extent f)]
-              [(spec:linear lo hi)
-               (linear lo hi f)]))
-          (define (i:pulse/adsr+modulate #:duty dspec #:period pspec #:volume vspec)
-            (λ (frames tone*accent?)
-              (define d* (stage-spec dspec frames))
-              (define p* (stage-spec pspec frames))
-              (define v* (stage-spec vspec frames))
-              (match-define (cons tone accent?) tone*accent?)
-              (define base-per (pulse-tone->period tone))
-              (define base-volume (if accent? 1 0))
-              (for/list ([f (in-range frames)])
-                (define duty (eval-spec d* f))
-                (define per (fx+ base-per (eval-spec p* f)))
-                (define volume (fx+ base-volume (eval-spec v* f)))
-                (wave:pulse duty per volume))))
-          (list (i:pulse/adsr+modulate
-                 #:duty (spec:constant 2)
-                 #:period
-                 (spec:adsr 'sustain
-                            20 (spec:linear -5 5)
-                            05 (spec:linear 5 0)
-                            10 (spec:constant 0)
-                            05 (spec:linear 0 -5))
-                 #:volume
-                 (spec:adsr 'sustain
-                            05 (spec:linear 0 15)
-                            05 (spec:linear 15 6)
-                            10 (spec:modulate 440.0 6 4)
-                            05 (spec:linear 6 0)))
-                (i:pulse 2 6)
-                (i:triangle))]
+          (shuffle
+           (list (i:pulse/spec
+                  #:duty
+                  (or (spec:constant 2)
+                      (spec:adsr 'sustain
+                                 0 (spec:constant 0)
+                                 0 (spec:constant 0)
+                                 1 (spec:modulate 440.0 2 1)
+                                 0 (spec:constant 0)))
+                  #:period
+                  (or (spec:constant 0)
+                      (spec:adsr 'sustain
+                                 0 (spec:constant 0)
+                                 0 (spec:constant 0)
+                                 1 (spec:modulate 440.0 0 10)
+                                 0 (spec:constant 0))
+                      (spec:adsr 'sustain
+                                 20 (spec:linear -5 5)
+                                 05 (spec:linear 5 0)
+                                 10 (spec:constant 0)
+                                 05 (spec:linear 0 -5)))
+                  #:volume
+                  (or (spec:adsr 'sustain
+                                 10 (spec:linear 10 10)
+                                 10 (spec:linear 8 8)
+                                 10 (spec:linear 6 6)
+                                 10 (spec:linear 0 0))
+                      (spec:constant 6)
+                      (spec:adsr 'sustain
+                                 05 (spec:linear 0 15)
+                                 05 (spec:linear 15 6)
+                                 10 (spec:modulate 440.0 6 4)
+                                 05 (spec:linear 6 0))
+                      (spec:adsr 'sustain
+                                 05 (spec:linear 0 15)
+                                 05 (spec:linear 15 6)
+                                 10 (spec:linear 6 6)
+                                 10 (spec:linear 6 0))))
+                 (i:pulse/spec
+                  #:duty
+                  (spec:adsr 'sustain
+                             0 (spec:constant 0)
+                             0 (spec:constant 0)
+                             1 (spec:modulate 440.0 2 1)
+                             0 (spec:constant 0))
+                  #:period (spec:constant 0)
+                  #:volume (spec:constant 6))
+                 (i:triangle/spec
+                  #:period
+                  (or (spec:adsr 'sustain
+                                 0 (spec:constant 0)
+                                 0 (spec:constant 0)
+                                 1 (spec:modulate 440.0 0 5)
+                                 0 (spec:constant 0))
+                      (spec:constant 0)))))]
          [else
           (shuffle
            (list (if (zero? (random 2))
@@ -526,7 +627,7 @@
               (and (zero? (random 2)) (+ 4 (random 8)))
               (+ 50 (random 400)))))
 
-  (convert scale-diatonic-major 8 140))
+  (convert scale-diatonic-major 8 115))
 
 (module+ main-x
   (play-one! (cmd:repeat (composition->track (bithoven)))))
