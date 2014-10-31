@@ -122,12 +122,10 @@
               v)))
       (function f #:color x-max #:label (format "frames = ~a" x-max)))
     (plot (list #;(plot-one 10)
-           (plot-one 25)
-           #;(plot-one 50))
+           #;(plot-one 25)
+           (plot-one 50))
           #:x-min 0 #:x-max 50
-          #:y-min 0)
-    (plot (function (λ (t) (* 2 (sin (* 2 pi (/ 440 60) (/ t 100))))))
-          #:x-min 0 #:x-max 100)))
+          #:y-min 0)))
 
 (struct spec ())
 (struct spec:constant spec (v))
@@ -535,7 +533,7 @@
         (list melody harmony bass)
         (cond
          [#t
-          (shuffle
+          ((if #t (λ (x) x) shuffle)
            (list (i:pulse/spec
                   #:duty
                   (or (spec:constant 2)
@@ -573,21 +571,35 @@
                                  05 (spec:linear 15 6)
                                  10 (spec:linear 6 6)
                                  10 (spec:linear 6 0))))
-                 (i:pulse/spec
-                  #:duty
-                  (spec:adsr 'sustain
-                             0 (spec:constant 0)
-                             0 (spec:constant 0)
-                             1 (spec:modulate 440.0 2 1)
-                             0 (spec:constant 0))
-                  #:period (spec:constant 0)
-                  #:volume (spec:constant 6))
+                 (or
+                  (i:pulse/spec
+                   #:duty
+                   (spec:adsr 'sustain
+                              0 (spec:constant 0)
+                              0 (spec:constant 0)
+                              1 (spec:modulate 880.0 2 1)
+                              0 (spec:constant 0))
+                   #:period (spec:constant 0)
+                   #:volume (spec:constant 6))
+                  (i:pulse/spec
+                   #:duty (spec:constant 2)
+                   #:period
+                   (spec:adsr 'sustain
+                              0 (spec:constant #f)
+                              0 (spec:constant #f)
+                              1 (spec:modulate 440.0 0 2)
+                              0 (spec:constant #f))
+                   #:volume (spec:adsr 'sustain
+                                       4 (spec:constant 15)
+                                       9 (spec:linear 15 6)
+                                       0 (spec:constant 0)
+                                       0 (spec:constant 0))))
                  (i:triangle/spec
                   #:period
                   (or (spec:adsr 'sustain
                                  0 (spec:constant 0)
                                  0 (spec:constant 0)
-                                 1 (spec:modulate 440.0 0 5)
+                                 1 (spec:modulate 880.0 0 5)
                                  0 (spec:constant 0))
                       (spec:constant 0)))))]
          [else
@@ -627,7 +639,7 @@
               (and (zero? (random 2)) (+ 4 (random 8)))
               (+ 50 (random 400)))))
 
-  (convert scale-diatonic-major 8 115))
+  (convert scale-diatonic-major 8 180))
 
 (module+ main-x
   (play-one! (cmd:repeat (composition->track (bithoven)))))
