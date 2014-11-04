@@ -490,6 +490,13 @@
           (cons 0.125 0) (cons 0.125 0)
           (cons 0.125 0) (cons 0.125 0))]))
 
+;; xxx new interface: submit composition, arrangement, and
+;; effects. have the player store some state (like what part, what
+;; measure, what frame it is on) that gets updated every frame. when
+;; you change arrangement, you may change tempo, so you port the
+;; state. every frame, evaluate the composition on the frame number to
+;; get the instruments.
+
 (define (composition->track c)
   (define (convert scale-kind rest-n tempo)
     (define scale-root (select-from-list tone-names))
@@ -574,11 +581,12 @@
                  (or
                   (i:pulse/spec
                    #:duty
-                   (spec:adsr 'sustain
-                              0 (spec:constant 0)
-                              0 (spec:constant 0)
-                              1 (spec:modulate 880.0 2 1)
-                              0 (spec:constant 0))
+                   (or (spec:constant 2)
+                       (spec:adsr 'sustain
+                                  0 (spec:constant 0)
+                                  0 (spec:constant 0)
+                                  1 (spec:modulate 880.0 2 1)
+                                  0 (spec:constant 0)))
                    #:period (spec:constant 0)
                    #:volume (spec:constant 6))
                   (i:pulse/spec
@@ -639,7 +647,7 @@
               (and (zero? (random 2)) (+ 4 (random 8)))
               (+ 50 (random 400)))))
 
-  (convert scale-diatonic-major 8 180))
+  (convert scale-diatonic-major 8 210))
 
 (module+ main-x
   (play-one! (cmd:repeat (composition->track (bithoven)))))
