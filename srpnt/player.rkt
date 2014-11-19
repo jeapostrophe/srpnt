@@ -67,7 +67,7 @@
  (define (mixer-end! m) ((mixer-end m)))
  (define (mixer-close! m) ((mixer-close m))))
 
-(define (playing-mixer/inform inform-begin! inform-out! inform-end!)
+(define (playing-mixer/inform inform-begin! inform-out! inform-end! inform-close!)
   (define bp (make-bytes-player))
   (define bs (make-buffer channels))
   (define begin! inform-begin!)
@@ -91,11 +91,12 @@
     (inform-end!)
     (void))
   (define (close!)
-    (close-bytes-player! bp))
+    (close-bytes-player! bp)
+    (inform-close!))
   (mixer begin! mix! end! close!))
 
 (define (playing-mixer)
-  (playing-mixer/inform void void void))
+  (playing-mixer/inform void void void void))
 
 (define (logging&playing-mixer log-p)
   (define tmp-log-p
@@ -110,7 +111,23 @@
     (close-output-port log-op)
     (rename-file-or-directory tmp-log-p log-p #t)
     (void))
-  (playing-mixer/inform inform-begin! inform-out! inform-end!))
+  (playing-mixer/inform inform-begin! inform-out! inform-end! void))
+
+(define (saving-mixer save-p)
+  (define save-p-l (path-add-suffix save-p #".l.raw"))
+  (define save-p-r (path-add-suffix save-p #".r.raw"))
+  (define save-op-l (open-output-file save-p-l #:exists 'replace))
+  (define save-op-r (open-output-file save-p-r #:exists 'replace))
+  (define (inform-out! p1 p2 t n ld rd lout rout)
+    (write-byte lout save-op-l)
+    (write-byte rout save-op-r))
+  (define (inform-close!)
+    (flush-output save-op-l)
+    (close-output-port save-op-l)
+    (flush-output save-op-r)
+    (close-output-port save-op-r)
+    (void))
+  (playing-mixer/inform void inform-out! void inform-close!))
 
 ;; A frame corresponds to 1/60th of a second.
 (struct cmd:frame (p1 p2 t n ld rd))
@@ -153,6 +170,14 @@
 
 (provide play-one!)
 
+(define (dynamic-play-to! m song-p)
+  (define ns (make-base-namespace))
+  (namespace-attach-module (current-namespace) 'srpnt/player ns)
+  (define init-c
+    (parameterize ([current-namespace ns])
+      (dynamic-require `(file ,song-p) 'main-track)))
+  (play-to! m init-c))
+
 (define (play! song-p
                #:log-p [log-p #f])
   (printf "starting...\n")
@@ -166,12 +191,7 @@
     (define player-t
       (thread
        (λ ()
-         (define ns (make-base-namespace))
-         (namespace-attach-module (current-namespace) 'srpnt/player ns)
-         (define init-c
-           (parameterize ([current-namespace ns])
-             (dynamic-require `(file ,song-p) 'main-track)))
-         (play-to! m init-c))))
+         (dynamic-play-to! m song-p))))
     (define song-p-evt
       (filesystem-change-evt song-p))
     (sync song-p-evt player-t)
@@ -182,16 +202,28 @@
   (mixer-close! m)
   (printf "...stop.\n"))
 
+(define (record! save-p song-p)
+  (define m (saving-mixer save-p))
+  (dynamic-play-to! m song-p)
+  (mixer-close! m))
+
 (module+ main
   (require racket/cmdline)
 
   (define the-log-p #f)
+  (define the-save-p #f)
   (command-line
    #:program "player"
    #:once-each
    ["--log" log-p "A log to be used with the oscilloscope"
     (set! the-log-p log-p)]
+   ["--save" save-p "A file to be used save the song"
+    (set! the-save-p save-p)]
    #:args (song-file)
-   (play!
-    #:log-p the-log-p
-    song-file)))
+   (if the-save-p
+       (record!
+        the-save-p
+        song-file)
+       (play!
+        #:log-p the-log-p
+        song-file))))

@@ -93,9 +93,13 @@
 
 ;; A linear interpolaction is ideal for traditional ADSR which is
 ;; based on slopes
-
 (define (linear lo hi %.0)
-  (fx+ lo (fl->fx (flround (fl* %.0 (fx->fl (fx- hi lo)))))))
+  (define lo.0 (fx->fl lo))
+  (define hi.0 (fx->fl hi))
+  (fl->fx 
+   (flround 
+    (fl+ (fl* (fl- 1.0 %.0) lo.0)
+         (fl* %.0 hi.0)))))
 
 ;; Vibrato, tremolo, as well as duty cycle modulation in a similar
 ;; framework are different oscillating effects
@@ -498,10 +502,10 @@
 ;; get the instruments.
 
 (define (composition->track c)
-  (define (convert scale-kind rest-n tempo)
+  (define (convert scale-kind rest-n tempo drums?)
     (define scale-root (select-from-list tone-names))
     (define scale (scale-kind scale-root))
-    (convert-with scale rest-n tempo))
+    (convert-with scale rest-n tempo drums?))
 
   (let ()
     (local-require racket/pretty)
@@ -511,7 +515,7 @@
   ;; xxx choose this (and make sure every instrument can play the notes)
   (define base-octave 3)
 
-  (define (convert-with scale rest-n tempo)
+  (define (convert-with scale rest-n tempo drums?)
     (printf "Tempo is ~v\n" tempo)
     (chorded-song->commands*
      #:me
@@ -520,19 +524,19 @@
      #:drum
      ;; xxx generate this
      (cond
-      [#t
+      [drums?
        (i:drums (vector i:drum:hihat
                         i:drum:bass
                         i:drum:snare))]
-      [(< 80 tempo 170)
+      [(not drums?)
+       (i:drum (vector #f #f #f))]
+      [else
        (i:drum (vector (select-from-list (list closed-hihat
                                                open-hihat
                                                loose-hihat))
                        bass-drum
                        (select-from-list (list snare-drum1
-                                               snare-drum2))))]
-      [else
-       (i:drum (vector #f #f #f))])
+                                               snare-drum2))))])
      #:instruments
      ;; xxx generate this
      (let ()
@@ -552,15 +556,15 @@
                   #:period
                   (or (spec:constant 0)
                       (spec:adsr 'sustain
-                                 0 (spec:constant 0)
-                                 0 (spec:constant 0)
-                                 1 (spec:modulate 440.0 0 10)
-                                 0 (spec:constant 0))
-                      (spec:adsr 'sustain
                                  20 (spec:linear -5 5)
                                  05 (spec:linear 5 0)
                                  10 (spec:constant 0)
-                                 05 (spec:linear 0 -5)))
+                                 05 (spec:linear 0 -5))
+                      (spec:adsr 'sustain
+                                 0 (spec:constant 0)
+                                 0 (spec:constant 0)
+                                 1 (spec:modulate 440.0 0 10)
+                                 0 (spec:constant 0)))
                   #:volume
                   (or (spec:adsr 'sustain
                                  10 (spec:linear 10 10)
@@ -639,15 +643,16 @@
 
   (when #f
     (list
-     (convert scale-diatonic-major 8 480)
-     (convert scale-diatonic-major 8 280)
-     (convert scale-diminished #f 90)
-     (convert scale-harmonic-minor 16 210)
+     (convert scale-diatonic-major 8 480 #f)
+     (convert scale-diatonic-major 8 280 #t)
+     (convert scale-diminished #f 90 #t)
+     (convert scale-harmonic-minor 16 210 #t)
      (convert (select-from-list scales)
               (and (zero? (random 2)) (+ 4 (random 8)))
-              (+ 50 (random 400)))))
+              (+ 50 (random 400))
+              #t)))
 
-  (convert scale-diatonic-major 8 210))
+  (convert scale-diatonic-major 8 480 #f))
 
 (module+ main-x
   (play-one! (cmd:repeat (composition->track (bithoven)))))
