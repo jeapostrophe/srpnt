@@ -654,8 +654,8 @@
 
   (convert scale-diatonic-major 8 140 #t))
 
-(module+ main-x
-  (play-one! (cmd:repeat (composition->track (bithoven)))))
+(module+ main
+  (play-one! (composition->track (bithoven))))
 
 (define main-track
   (composition->track (bithoven))

@@ -3,7 +3,8 @@
          racket/fixnum
          racket/flonum
          racket/match
-         srpnt/music-theory)
+         srpnt/music-theory
+         data/enumerate)
 (module+ test
   (require rackunit))
 
@@ -14,8 +15,8 @@
 (struct time-sig (name ts) #:transparent)
 (define time-sig/ts:4:4 (time-sig "4/4" ts:4:4))
 (define time-sig/ts:3:4 (time-sig "3/4" ts:3:4))
-(define (select-time-sig)
-  (select-from-list (list time-sig/ts:4:4)))
+(define time-sig/e
+  (fin/e time-sig/ts:4:4))
 
 ;; xxx #t means "accented" and "can be the start of a chord
 ;; change", but the second thing isn't correctly used
@@ -30,11 +31,8 @@
    time-sig/ts:3:4
    (list (accent-pattern "waltz"  1 '(#t #f #f)))))
 
-(define (select-accent-pattern ts)
-  (select-from-list
-   (hash-ref
-    time-sig->accents
-    ts)))
+(define (accent-pattern/e ts)
+  (from-list/e (hash-ref time-sig->accents ts)))
 
 (define (accent-pattern-notes-per-pulse ap)
   (match-define (accent-pattern _ ppm as) ap)
@@ -44,104 +42,102 @@
 
 ;; part-lens is in 4 measures
 (struct form (name part-lens pattern) #:transparent)
-(define (select-form)
-  (select-from-list
-   (list
-    (form "strophic"
-          '((A . 1))
-          '(A))
-    (form "medley"
-          '((A . 1) (B . 1) (C . 1) (D . 1))
-          '(A B C D))
-    (form "double medley"
-          '((A . 1) (B . 1) (C . 1) (D . 1))
-          '(A A B B C C D D))
-    (form "binary"
-          '((A . 1) (B . 1))
-          '(A B))
-    (form "double binary"
-          '((A . 1) (B . 1))
-          '(A A B B))
-    (form "ternary"
-          '((A . 1) (B . 1))
-          '(A B A))
-    (form "repeated ternary"
-          '((A . 1) (B . 1))
-          '(A A B A))
-    (form "asym rondo"
-          '((A . 1) (B . 1) (C . 1) (D . 1) (E . 1))
-          '(A B A C A D A E A))
-    (form "sym rondo"
-          '((A . 1) (B . 1) (C . 1))
-          '(A B A C A B A))
-    (form "sym rondo"
-          '((A . 1) (B . 1) (C . 1))
-          '(A B A C A B A))
-    (form "arch"
-          '((A . 1) (B . 1) (C . 1))
-          '(A B C B A))
-    (form "typical pop"
-          '((I . 1) (V . 1) (C . 1) (M8 . 2) (O . 1))
-          '(I V C V C M8 C C O))
-    (form "32-bar"
-          '((A . 2) (B . 2))
-          '(A A B A))
-    (form "ABABCB"
-          '((A . 1) (B . 1) (C . 1))
-          '(A B A B C B))
-    (form "ABABCAB"
-          '((A . 1) (B . 1) (C . 1))
-          '(A B A B C A B))
-    (form "ABABCBAB"
-          '((A . 1) (B . 1) (C . 1))
-          '(A B A B C B A B))
-    (form "ABABCABCAB"
-          '((A . 1) (B . 1) (C . 1))
-          '(A B A B C A B C A B)))))
+(define form/e
+  (fin/e
+   (form "strophic"
+         '((A . 1))
+         '(A))
+   (form "medley"
+         '((A . 1) (B . 1) (C . 1) (D . 1))
+         '(A B C D))
+   (form "double medley"
+         '((A . 1) (B . 1) (C . 1) (D . 1))
+         '(A A B B C C D D))
+   (form "binary"
+         '((A . 1) (B . 1))
+         '(A B))
+   (form "double binary"
+         '((A . 1) (B . 1))
+         '(A A B B))
+   (form "ternary"
+         '((A . 1) (B . 1))
+         '(A B A))
+   (form "repeated ternary"
+         '((A . 1) (B . 1))
+         '(A A B A))
+   (form "asym rondo"
+         '((A . 1) (B . 1) (C . 1) (D . 1) (E . 1))
+         '(A B A C A D A E A))
+   (form "sym rondo"
+         '((A . 1) (B . 1) (C . 1))
+         '(A B A C A B A))
+   (form "sym rondo"
+         '((A . 1) (B . 1) (C . 1))
+         '(A B A C A B A))
+   (form "arch"
+         '((A . 1) (B . 1) (C . 1))
+         '(A B C B A))
+   (form "typical pop"
+         '((I . 1) (V . 1) (C . 1) (M8 . 2) (O . 1))
+         '(I V C V C M8 C C O))
+   (form "32-bar"
+         '((A . 2) (B . 2))
+         '(A A B A))
+   (form "ABABCB"
+         '((A . 1) (B . 1) (C . 1))
+         '(A B A B C B))
+   (form "ABABCAB"
+         '((A . 1) (B . 1) (C . 1))
+         '(A B A B C A B))
+   (form "ABABCBAB"
+         '((A . 1) (B . 1) (C . 1))
+         '(A B A B C B A B))
+   (form "ABABCABCAB"
+         '((A . 1) (B . 1) (C . 1))
+         '(A B A B C A B C A B))))
 
 (struct progression (seq) #:transparent)
 ;; xxx Should look at https://en.wikipedia.org/wiki/List_of_chord_progressions
 ;; From https://en.wikipedia.org/wiki/Chord_progression
 
 ;; xxx i should change this to allow me to write it roman numeral analysis
-(define (select-chord-progression)
-  (select-from-list
-   (list
-    ;; three chord
-    (progression '(0 3 4 4))
-    (progression '(0 0 3 4))
-    (progression '(0 3 0 4))
-    (progression '(0 3 4 3))
-    ;; three chord with minor subst
-    (progression '(0 2 4 4))
-    (progression '(0 0 2 4))
-    (progression '(0 2 0 4))
-    (progression '(0 2 4 3))
-    (progression '(0 3 4 2))
-    (progression '(0 1 4))
-    (progression '(1 4 0))
-    (progression '(0 3 4 4 0 3 4 0))
-    ;; blues
-    (progression '(0 0 0 0 3 3 0 0 4 3 0 0))
-    ;; 50s
-    (progression '(0 3 4))
-    (progression '(0 5 3 4))
-    (progression '(0 5 1 4))
-    ;; circle
-    (progression '(5 1 4 0))
-    (progression '(0 3 6 2 5 1 4 0))
-    (progression '(0 4 0))
-    (progression '(0 3 4 0))
-    (progression '(0 5 1 4))
-    ;; harmonizing
-    (progression '(0 1 2 3 4))
-    (progression '(0 1 0 3 4))
-    ;; andalusian
-    (progression '(0 6 5 4))
-    (progression '(0 2 3 5)))))
+(define chord-progression/e
+  (fin/e
+   ;; three chord
+   (progression '(0 3 4 4))
+   (progression '(0 0 3 4))
+   (progression '(0 3 0 4))
+   (progression '(0 3 4 3))
+   ;; three chord with minor subst
+   (progression '(0 2 4 4))
+   (progression '(0 0 2 4))
+   (progression '(0 2 0 4))
+   (progression '(0 2 4 3))
+   (progression '(0 3 4 2))
+   (progression '(0 1 4))
+   (progression '(1 4 0))
+   (progression '(0 3 4 4 0 3 4 0))
+   ;; blues
+   (progression '(0 0 0 0 3 3 0 0 4 3 0 0))
+   ;; 50s
+   (progression '(0 3 4))
+   (progression '(0 5 3 4))
+   (progression '(0 5 1 4))
+   ;; circle
+   (progression '(5 1 4 0))
+   (progression '(0 3 6 2 5 1 4 0))
+   (progression '(0 4 0))
+   (progression '(0 3 4 0))
+   (progression '(0 5 1 4))
+   ;; harmonizing
+   (progression '(0 1 2 3 4))
+   (progression '(0 1 0 3 4))
+   ;; andalusian
+   (progression '(0 6 5 4))
+   (progression '(0 2 3 5))))
 
-(define (select-bass-notes)
-  (list 0 3 4))
+(define bass-notes/e
+  (fin/e (list 0 3 4)))
 
 ;; per part
 (define (random-between lo hi)
@@ -318,14 +314,10 @@
                                   (vector 0.125 'N) (vector 0.125 'N)
                                   (vector 0.125 'N) (vector 0.250 'N)))))))
 
-(define (bithoven)
+(define (bithoven-input->composition bi)
+  (match-define (vector (cons ts ap) f cp bns) bi)
   (define scale lazy-scale)
-  (define ts (select-time-sig))
-  (define ap (select-accent-pattern ts))
-  (define f (select-form))
-  (define cp (select-chord-progression))
   (define cp-s (progression-seq cp))
-  (define bns (select-bass-notes))
   (define btones
     (for/list ([bn (in-list bns)])
       (first (chord-triad (mode scale bn)))))
@@ -391,6 +383,28 @@
       (values label
               chord-track)))
   (vector (time-sig-ts ts) (accent-pattern-accents ap) (form-pattern f) parts))
+
+(define bithoven/e
+  (vec/e (dep/e time-sig/e
+                (λ (ts)
+                  (accent-pattern/e ts)))
+         form/e
+         chord-progression/e
+         bass-notes/e))
+
+(define (from-nat/random e)
+  (define k (size e))
+  (define n (random k))
+  (printf "Using n = ~a/~a\n" n k)
+  (from-nat e n))
+
+(define (random-bithoven-input)
+  (from-nat/random bithoven/e))
+
+(define (bithoven)
+  (define bi (random-bithoven-input))
+  (printf "bi is ~v\n" bi)
+  (bithoven-input->composition bi))
 
 (module+ test
   (require racket/pretty)
