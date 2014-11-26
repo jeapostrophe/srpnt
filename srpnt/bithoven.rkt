@@ -346,54 +346,54 @@
         [(< pat-length 3) 4]
         [(< pat-length 5) 2]
         [else 1]))))
-    (define parts
-      (for/hasheq ([p (in-list (form-part-lens f))])
-        (match-define (cons label len) p)
-        (define pd (select-progress-divison (length cp-s)))
-        (for ([a-pd (in-list pd)])
-          (when (zero? a-pd)
-            (error 'bithoven
-                   "Cannot generate a part where a chord doesn't get any of division: ~v"
-                   (vector cp-s pd))))
-        (define pulses (* len measures-per-part (accent-pattern-pulses-per-measure ap)))
-        (define chord-pulses
-          (apply-factors-and-ensure-sum pulses pd))
-        (for ([cp (in-list chord-pulses)])
-          (when (zero? cp)
-            (error 'bithoven
-                   "Cannot generate a part where a chord doesn't get any pulses: ~v"
-                   (vector pd chord-pulses))))
-        (define chord-rhythm
-          (for/list ([cp (in-list chord-pulses)])
-            (select-rhythm ts (* cp (accent-pattern-notes-per-pulse ap)))))
-        (printf "Rhythm: ~v x ~v => ~v\n" ts chord-pulses chord-rhythm)
-        (define chord-track
-          (split-into-measures
-           ts ap
-           (append*
-            (for/list ([chord (in-list cp-s)]
-                       [rhythm (in-list chord-rhythm)])
-              (define tones (chord-triad (mode scale chord)))
-              (for/list ([r (in-list rhythm)])
-                (define melody (select-from-list tones))
-                (define harmony (select-from-list tones))
-                (define allowed-bass-notes
-                  (filter (λ (t)
-                            (memf (λ (ct) (eq? (car ct) (car t)))
-                                  tones))
-                          btones))
-                (when (empty? allowed-bass-notes)
-                  (error 'bithoven "No bass tone was found in ~v for ~v"
-                         btones tones))
-                (define bass
-                  (select-from-list allowed-bass-notes))
-                (vector r (list melody harmony bass)))))))
-        (values label
-                chord-track)))
-    (vector (time-sig-ts ts) (accent-pattern-accents ap) (form-pattern f) parts))
+  (define parts
+    (for/hasheq ([p (in-list (form-part-lens f))])
+      (match-define (cons label len) p)
+      (define pd (select-progress-divison (length cp-s)))
+      (for ([a-pd (in-list pd)])
+        (when (zero? a-pd)
+          (error 'bithoven
+                 "Cannot generate a part where a chord doesn't get any of division: ~v"
+                 (vector cp-s pd))))
+      (define pulses (* len measures-per-part (accent-pattern-pulses-per-measure ap)))
+      (define chord-pulses
+        (apply-factors-and-ensure-sum pulses pd))
+      (for ([cp (in-list chord-pulses)])
+        (when (zero? cp)
+          (error 'bithoven
+                 "Cannot generate a part where a chord doesn't get any pulses: ~v"
+                 (vector pd chord-pulses))))
+      (define chord-rhythm
+        (for/list ([cp (in-list chord-pulses)])
+          (select-rhythm ts (* cp (accent-pattern-notes-per-pulse ap)))))
+      (printf "Rhythm: ~v x ~v => ~v\n" ts chord-pulses chord-rhythm)
+      (define chord-track
+        (split-into-measures
+         ts ap
+         (append*
+          (for/list ([chord (in-list cp-s)]
+                     [rhythm (in-list chord-rhythm)])
+            (define tones (chord-triad (mode scale chord)))
+            (for/list ([r (in-list rhythm)])
+              (define melody (select-from-list tones))
+              (define harmony (select-from-list tones))
+              (define allowed-bass-notes
+                (filter (λ (t)
+                          (memf (λ (ct) (eq? (car ct) (car t)))
+                                tones))
+                        btones))
+              (when (empty? allowed-bass-notes)
+                (error 'bithoven "No bass tone was found in ~v for ~v"
+                       btones tones))
+              (define bass
+                (select-from-list allowed-bass-notes))
+              (vector r (list melody harmony bass)))))))
+      (values label
+              chord-track)))
+  (vector (time-sig-ts ts) (accent-pattern-accents ap) (form-pattern f) parts))
 
-  (module+ test
-    (require racket/pretty)
-    (pretty-print (bithoven)))
+(module+ test
+  (require racket/pretty)
+  (pretty-print (bithoven)))
 
-  (provide bithoven)
+(provide bithoven)

@@ -652,7 +652,7 @@
               (+ 50 (random 400))
               #t)))
 
-  (convert scale-diatonic-major 8 480 #f))
+  (convert scale-diatonic-major 8 140 #t))
 
 (module+ main-x
   (play-one! (cmd:repeat (composition->track (bithoven)))))
