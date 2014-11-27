@@ -1,6 +1,11 @@
 #lang racket/base
 (require srpnt/nestration/instrument)
 
+;; Drum periods... 
+;; 3, 4, 8 sound good
+;; 9 is crunchy
+;; 7 and C are okay
+
 ;; xxx look up better formulas?
 (define i:drum:hihat
   (i:drum/spec #:mode (spec:constant #f)
@@ -31,6 +36,11 @@
                           4 (spec:linear 11 6)
                           8 (spec:linear 6 2)
                           4 (spec:constant 0))))
+
+(define i:drum:off
+  (i:drum/spec #:mode (spec:constant #f)
+               #:period (spec:constant #xF)
+               #:volume (spec:constant 0)))
 
 ;; xxx get more from here: http://en.wikipedia.org/wiki/Drum_beat
 (define beat:heavy-metal

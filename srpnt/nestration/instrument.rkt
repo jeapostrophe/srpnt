@@ -1,4 +1,9 @@
 #lang racket/base
+(require racket/match
+         racket/fixnum
+         racket/flonum
+         racket/math
+         srpnt/music)
 (module+ test
   (require rackunit))
 
@@ -170,3 +175,9 @@
       (define per (eval-spec p* f))
       (define volume (fxmin 15 (fxmax 0 (eval-spec v* f))))
       (wave:noise short? per volume))))
+
+(define (i:drums drums)
+  (λ (frames which-n)
+    ((vector-ref drums which-n) frames)))
+
+(provide (all-defined-out))
