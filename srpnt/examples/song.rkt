@@ -463,6 +463,10 @@
         (cons 0.125 1) (cons 0.0625 0) (cons 0.0625 0)
         (cons 0.125 2) (cons 0.0625 0) (cons 0.0625 0)))
 
+(define (select-from-list l)
+  (list-ref l (random (length l))))
+(provide select-from-list)
+
 (define (select-drum-measure ts ap)
   ;; xxx make this more robust
   (cond

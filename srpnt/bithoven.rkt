@@ -20,10 +20,6 @@
 (define-syntax-rule (define/memo (f arg ...) . body)
   (define f (λ/memo (arg ...) . body)))
 
-(define (select-from-list l)
-  (list-ref l (random (length l))))
-(provide select-from-list)
-
 (struct time-sig (name ts) #:transparent)
 (define time-sig/ts:4:4 (time-sig "4/4" ts:4:4))
 (define time-sig/ts:3:4 (time-sig "3/4" ts:3:4))
@@ -188,21 +184,31 @@
     (printf "(f ~a ~a) = ~a\n"
             n k (size e))))
 
+(define tones/e
+  (vec/e (below/e 3) (below/e 3) (below/e 3)))
+
+(define (note/e beat-unit len)
+  (cons/e (const/e (* len beat-unit)) tones/e))
+
 (define/memo (maybe-combine/e a-ts notes)
   (match-define (time-sig _ ts) a-ts)
   (match-define (cons beats-per-bar beat-unit) ts)
   (if (notes . <= . 1)
       (dont-combine/e a-ts notes)
-      (cons/e 
-       (fin/e (list beat-unit beat-unit)
-              (list (* 2 beat-unit)))
+      (cons/e
+       (map/e cdr error
+              (dep/e bool/e
+                     (λ (combine?)
+                       (if combine?
+                           (list/e (note/e beat-unit 1) (note/e beat-unit 1))
+                           (list/e (note/e beat-unit 2))))))
        (maybe-combine/e a-ts (- notes 2)))))
 (define/memo (dont-combine/e a-ts notes)
   (match-define (time-sig _ ts) a-ts)
   (match-define (cons beats-per-bar beat-unit) ts)
   (if (zero? notes)
       (const/e '())
-      (cons/e (const/e (list beat-unit))
+      (cons/e (list/e (note/e beat-unit 1))
               (maybe-combine/e a-ts (sub1 notes)))))
 
 (define/memo (rhythm/e a-ts notes)
@@ -211,7 +217,7 @@
 (module+ test
   (printf "r 4:4 4 =\n")
   (define re (rhythm/e time-sig/ts:4:4 4))
-  (for ([i (in-naturals)]
+  (for ([i (in-range 100)]
         [r (to-stream re)])
     (printf "~a. ~a\n" i r)))
 
@@ -306,7 +312,7 @@
   (define cp-s (progression-seq cp))
   (define btones
     (for/list ([bn (in-list bns)])
-      (first (chord-triad (mode scale bn)))))  
+      (first (chord-triad (mode scale bn)))))
   (define parts
     (for/hasheq ([p (in-list (form-part-lens f))]
                  [chord-pulses*chord-rhythm (in-list cps*crs-s)])
@@ -319,9 +325,11 @@
           (for/list ([chord (in-list cp-s)]
                      [rhythm (in-list chord-rhythm)])
             (define tones (chord-triad (mode scale chord)))
-            (for/list ([r (in-list rhythm)])
-              (define melody (select-from-list tones))
-              (define harmony (select-from-list tones))
+            (for/list ([r-info (in-list rhythm)])
+              (match-define (cons r (vector melody-idx harmony-idx bass-idx))
+                            r-info)
+              (define melody (list-ref tones melody-idx))
+              (define harmony (list-ref tones harmony-idx))
               (define allowed-bass-notes
                 (filter (λ (t)
                           (memf (λ (ct) (eq? (car ct) (car t)))
@@ -331,7 +339,9 @@
                 (error 'bithoven "No bass tone was found in ~v for ~v"
                        btones tones))
               (define bass
-                (select-from-list allowed-bass-notes))
+                (list-ref allowed-bass-notes
+                          (modulo bass-idx
+                                  (length allowed-bass-notes))))
               (vector r (list melody harmony bass)))))))
       (values label
               chord-track)))
@@ -348,9 +358,10 @@
   (dep/e
    cp/e
    (λ (cps)
-           (traverse/e (λ (cp)
-                         (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap))))
-                       cps))))
+     (traverse/e
+      (λ (cp)
+        (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap))))
+      cps))))
 
 (define (make-bithoven/e)
   (vec/e
