@@ -363,7 +363,7 @@
         (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap))))
       cps))))
 
-(define bithoven/e
+(define (make-bithoven/e)
   (time
    (vec/e
     (dep/e
@@ -399,17 +399,17 @@
     bass-notes/e)))
 
 (define (enum-random e)
+  (random-natural (size e)))
+
+(define (bithoven)
+  (define e (make-bithoven/e))
+  (define n (enum-random e))
   (define k (size e))
-  (define n (random-natural k))
   (local-require racket/format)
   (define ks (~a k))
   (define ns (~a #:min-width (string-length ks) #:align 'right n))
   (printf "Using n =\n~a of\n~a\n\n" ns ks)
-  n)
-
-(define (bithoven)
-  (define n (enum-random bithoven/e))
-  (define bi (from-nat bithoven/e n))
+  (define bi (from-nat e n))
   (printf "bi is ~v\n" bi)
   (bithoven-input->composition bi))
 
