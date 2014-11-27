@@ -66,11 +66,26 @@
 
 (define (nestration/e c)
   (match-define (vector ts ap pattern parts) c)
-  (vec/e tone-names/e scales/e tempo/e rest-n/e
+  (vec/e tone-names/e scales/e tempo/e
          pulse/e pulse/e triangle/e drums/e
          mhb/e
-         (many/e (drum-measure/e ts ap)
-                 (hash-count parts))))
+         ;; xxx these should be dependent on the instruments and how
+         ;; they will be used, because the pulse can't go very low and
+         ;; the triangle can't go very high
+         (fin/e 3 4) (fin/e 1 2) (fin/e 1 2)
+         (hash-traverse/e
+          (λ (_) (drum-measure/e ts ap))
+          parts)
+         (hash-traverse/e
+          (λ (ms)
+            (dep/e rest-n/e
+                   (λ (rest-n)
+                     (if rest-n
+                         (many/e
+                          (below/e rest-n)
+                          (add1 (ceiling (/ (length (append* ms)) rest-n))))
+                         (const/e '())))))
+          parts)))
 
 (define (random-index/printing e)
   (define n (random-index e))
@@ -94,21 +109,16 @@
 
 (define (nes-harmonic c s)
   (match-define (vector ts ap pattern parts) c)
-  (match-define (vector scale-root scale-kind tempo rest-n
+  (match-define (vector scale-root scale-kind tempo
                         pulse1 pulse2 triangle drum
-                        mhb dms)
+                        mhb base-octave melody-up bass-down
+                        part->dm part->rest-randoms)
                 s)
   (define scale (scale-kind scale-root))
 
   (let ()
     (local-require racket/pretty)
     (pretty-print s))
-
-  ;; xxx choose this (and make sure every instrument can play the
-  ;; notes) and choose the gaps between MHB
-  (define base-octave 3)
-  (define melody-up 1)
-  (define bass-down 1)
 
   (printf "Tempo is ~v\n" tempo)
   (chorded-song->commands*
@@ -129,13 +139,31 @@
    (let ()
      (define part->rest?ss (make-hash))
      (for ([(p ms) (in-hash parts)])
+       ;; xxx this is really ugly code
+       (match-define (cons rest-n rest-randoms)
+                     (hash-ref part->rest-randoms p))
+       (define (random!)
+         (begin0 (first rest-randoms)
+           (set! rest-randoms (rest rest-randoms))))
+       (define next-rest (if rest-n (random!) +inf.0))
+       (define i (if rest-n rest-n +inf.0))
        (define rest?ss
          (map (λ (ns)
-                (build-list (length ns) (λ (i) (and rest-n (zero? (random rest-n))))))
+                (build-list
+                 (length ns)
+                 (λ (j)
+                   (begin0 (if (= next-rest 0)
+                               #t
+                               #f)
+                     (cond
+                      [(= i 1)
+                       (set! i rest-n)
+                       (set! next-rest (random!))]
+                      [else
+                       (set! i (- i 1))
+                       (set! next-rest (- next-rest 1))])))))
               ms))
-       (printf "~v\n" rest?ss)
-       (hash-set! part->rest?ss p
-                  rest?ss))
+       (hash-set! part->rest?ss p rest?ss))
      (append*
       (for/list ([p (in-list pattern)])
         (force-lazy-scale/measures
@@ -145,8 +173,8 @@
    #:drum-measures
    (let ()
      (define part->dms (make-hash))
-     (for ([(p ms) (in-hash parts)]
-           [dm (in-list dms)])
+     (for ([(p ms) (in-hash parts)])
+       (define dm (hash-ref part->dm p))
        (hash-set! part->dms p
                   (for/list ([m (in-list ms)]) dm)))
      (append*
