@@ -408,7 +408,7 @@
   (local-require racket/format)
   (define ks (~a k))
   (define ns (~a #:min-width (string-length ks) #:align 'right n))
-  (printf "Using n =\n~a of\n~a\n\n" ns ks)
+  (printf "Bithoven: Using n =\n\t~a of\n\t~a\n\n" ns ks)
   (define bi (from-nat e n))
   (printf "bi is ~v\n" bi)
   (bithoven-input->composition bi))

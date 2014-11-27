@@ -8,7 +8,7 @@
 (define sample-bs (read-sample/gzip 0 4 clip-path))
 
 (define main-track
-  (composition->track (bithoven)))
+  (composition->track (bithoven) (nestration)))
 (provide main-track)
 
 (module+ main
