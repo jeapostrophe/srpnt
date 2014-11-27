@@ -193,24 +193,20 @@
   (match-define (cons beats-per-bar beat-unit) ts)
   (if (notes . <= . 1)
       (dont-combine/e a-ts notes)
-      (disj-sum/e (cons 
-                   (map/e (λ (l) (cons beat-unit (cons beat-unit l))) error
-                          (maybe-combine/e a-ts (- notes 2)))
-                   error)
-                  (cons
-                   (map/e (λ (l) (cons (* 2 beat-unit) l)) error
-                          (maybe-combine/e a-ts (- notes 2)))
-                   error))))
+      (cons/e 
+       (fin/e (list beat-unit beat-unit)
+              (list (* 2 beat-unit)))
+       (maybe-combine/e a-ts (- notes 2)))))
 (define/memo (dont-combine/e a-ts notes)
   (match-define (time-sig _ ts) a-ts)
   (match-define (cons beats-per-bar beat-unit) ts)
   (if (zero? notes)
       (const/e '())
-      (cons/e (const/e beat-unit)
+      (cons/e (const/e (list beat-unit))
               (maybe-combine/e a-ts (sub1 notes)))))
 
 (define/memo (rhythm/e a-ts notes)
-  (maybe-combine/e a-ts notes))
+  (map/e append* error (maybe-combine/e a-ts notes)))
 
 (module+ test
   (printf "r 4:4 4 =\n")
