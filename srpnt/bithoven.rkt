@@ -306,9 +306,7 @@
   (define cp-s (progression-seq cp))
   (define btones
     (for/list ([bn (in-list bns)])
-      (first (chord-triad (mode scale bn)))))
-  (printf "~v\n"
-          (vector f cp))
+      (first (chord-triad (mode scale bn)))))  
   (define parts
     (for/hasheq ([p (in-list (form-part-lens f))]
                  [chord-pulses*chord-rhythm (in-list cps*crs-s)])
@@ -349,7 +347,7 @@
      (length cp-s)))
   (dep/e
    cp/e
-   (λ/memo (cps)
+   (λ (cps)
            (traverse/e (λ (cp)
                          (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap))))
                        cps))))
