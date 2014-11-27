@@ -23,11 +23,12 @@
           [(cons off t-oct)
            (match-define (cons tone s-oct) (list-ref/modify modify/octave scale off))
            (cons tone (fx+ t-oct s-oct))]))))
-(define (force-lazy-scale/measures scale rest-n ms)
-  (for/list ([ns (in-list ms)])
-    (for/list ([n (in-list ns)])
+(define (force-lazy-scale/measures scale rest?ss ms)
+  (for/list ([ns (in-list ms)]
+             [rest?s (in-list rest?ss)])
+    (for/list ([n (in-list ns)]
+               [rest? (in-list rest?s)])
       (match-define (list* note tones more) n)
-      (define rest? (and rest-n (zero? (random rest-n))))
       (list* note (force-lazy-scale/tones scale rest? tones) more))))
 
 (define tone-names/e
@@ -125,9 +126,22 @@
              (cons (vector-ref instruments bass-idx)
                    (fx- base-octave bass-down))))
    #:measures
-   (append*
-    (for/list ([p (in-list pattern)])
-      (force-lazy-scale/measures scale rest-n (hash-ref parts p))))
+   (let ()
+     (define part->rest?ss (make-hash))
+     (for ([(p ms) (in-hash parts)])
+       (define rest?ss
+         (map (λ (ns)
+                (build-list (length ns) (λ (i) (and rest-n (zero? (random rest-n))))))
+              ms))
+       (printf "~v\n" rest?ss)
+       (hash-set! part->rest?ss p
+                  rest?ss))
+     (append*
+      (for/list ([p (in-list pattern)])
+        (force-lazy-scale/measures
+         scale
+         (hash-ref part->rest?ss p)
+         (hash-ref parts p)))))
    #:drum-measures
    (let ()
      (define part->dms (make-hash))
