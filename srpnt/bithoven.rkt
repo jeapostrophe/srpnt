@@ -9,6 +9,17 @@
 (module+ test
   (require rackunit))
 
+(define-syntax-rule (λ/memo (arg ...) . body)
+  (let ()
+    (define MEMO (make-hash))
+    (define (f arg ...)
+      (define k (list* arg ...))
+      (hash-ref! MEMO k
+                 (λ () (let () . body))))
+    f))
+(define-syntax-rule (define/memo (f arg ...) . body)
+  (define f (λ/memo (arg ...) . body)))
+
 (define (select-from-list l)
   (list-ref l (random (length l))))
 (provide select-from-list)
@@ -117,16 +128,19 @@
    (progression '(0 3 4 2))
    (progression '(0 1 4))
    (progression '(1 4 0))
-   (progression '(0 3 4 4 0 3 4 0))
+   ;; xxx too big
+   ;; (progression '(0 3 4 4 0 3 4 0))
    ;; blues
-   (progression '(0 0 0 0 3 3 0 0 4 3 0 0))
+   ;; xxx too big
+   ;; (progression '(0 0 0 0 3 3 0 0 4 3 0 0))
    ;; 50s
    (progression '(0 3 4))
    (progression '(0 5 3 4))
    (progression '(0 5 1 4))
    ;; circle
    (progression '(5 1 4 0))
-   (progression '(0 3 6 2 5 1 4 0))
+   ;; xxx too big
+   ;; (progression '(0 3 6 2 5 1 4 0))
    (progression '(0 4 0))
    (progression '(0 3 4 0))
    (progression '(0 5 1 4))
@@ -143,22 +157,22 @@
 (define (chord-pulses/e pulse-count chord-count)
   (list-of-length-n-summing-to-k-with-no-zeros/e chord-count pulse-count))
 
-(define LLMEM (make-hash))
-(define (list-of-length-n-summing-to-k-with-no-zeros/e n k)
-  (hash-ref!
-   LLMEM (cons n k)
-   (λ ()
-     (cond
-      [(= 0 n)
-       (const/e '())]
-      [(= 1 n)
-       (const/e (list k))]
-      [else
-       (dep/e (map/e add1 sub1 (below/e (+ 1 (- k n))))
-              (λ (this)
-                (list-of-length-n-summing-to-k-with-no-zeros/e
-                 (- n 1)
-                 (- k this))))]))))
+(define/memo (list-of-length-n-summing-to-k-with-no-zeros/e n k)
+  (unless (and (positive? n)
+               (positive? k)
+               (<= n k))
+    (error 'list-of-length-n-summing-to-k-with-no-zeros/e
+           "Illegal arguments: ~a and ~a"
+           n k))
+  (cond
+   [(= 1 n)
+    (const/e (list k))]
+   [else
+    (dep/e (map/e add1 sub1 (below/e (+ 1 (- k n))))
+           (λ (this)
+             (list-of-length-n-summing-to-k-with-no-zeros/e
+              (- n 1)
+              (- k this))))]))
 
 (module+ test
   (printf "16 x 3 =\n")
@@ -167,31 +181,43 @@
         [pd (to-stream e)])
     (printf "~a. ~a\n" i pd)))
 
-;; xxx (needs to be compatible with accent pattern)
-(define (select-rhythm a-ts notes)
+(module+ test
+  (for* ([k (in-range 1 10)]
+         [n (in-range k 10)])
+    (define e (chord-pulses/e n k))
+    (printf "(f ~a ~a) = ~a\n"
+            n k (size e))))
+
+(define/memo (maybe-combine/e a-ts notes)
   (match-define (time-sig _ ts) a-ts)
   (match-define (cons beats-per-bar beat-unit) ts)
-  (select-from-list
-   (list
-    (for/list ([k (in-range notes)])
-      beat-unit)
-    (let loop ([remaining (* beat-unit notes)])
-      (cond
-       [(fl= 0.0 remaining)
-        empty]
-       [else
-        (define-values (next-total nexts)
-          (if (and (zero? (modulo beats-per-bar 2))
-                   (<= (* 2 beat-unit) remaining))
-              (match (random 2)
-                [0 (values (* 2 beat-unit) (list (* 2 beat-unit)))]
-                [1 (values (* 2 beat-unit) (list beat-unit beat-unit))]
-                [2 (values (* 2 beat-unit) (list (/ beat-unit 2) (/ beat-unit 2)
-                                                 beat-unit))])
-              (match 0
-                [0 (values beat-unit (list beat-unit))]
-                [1 (values beat-unit (list (/ beat-unit 2) (/ beat-unit 2)))])))
-        (append nexts (loop (fl- remaining next-total)))])))))
+  (if (notes . <= . 1)
+      (dont-combine/e a-ts notes)
+      (disj-sum/e (cons 
+                   (map/e (λ (l) (cons beat-unit (cons beat-unit l))) error
+                          (maybe-combine/e a-ts (- notes 2)))
+                   error)
+                  (cons
+                   (map/e (λ (l) (cons (* 2 beat-unit) l)) error
+                          (maybe-combine/e a-ts (- notes 2)))
+                   error))))
+(define/memo (dont-combine/e a-ts notes)
+  (match-define (time-sig _ ts) a-ts)
+  (match-define (cons beats-per-bar beat-unit) ts)
+  (if (zero? notes)
+      (const/e '())
+      (cons/e (const/e beat-unit)
+              (maybe-combine/e a-ts (sub1 notes)))))
+
+(define/memo (rhythm/e a-ts notes)
+  (maybe-combine/e a-ts notes))
+
+(module+ test
+  (printf "r 4:4 4 =\n")
+  (define re (rhythm/e time-sig/ts:4:4 4))
+  (for ([i (in-naturals)]
+        [r (to-stream re)])
+    (printf "~a. ~a\n" i r)))
 
 (define (split-into-measures a-ts ap ns)
   (match-define (time-sig _ ts) a-ts)
@@ -277,7 +303,9 @@
                                   (vector 0.125 'N) (vector 0.250 'N)))))))
 
 (define (bithoven-input->composition bi)
-  (match-define (vector (cons (cons ts ap) (cons (cons f cp) cps)) bns) bi)
+  (match-define
+   (vector (cons ts (cons ap (cons (cons f cp) cps*crs-s))) bns)
+   bi)
   (define scale lazy-scale)
   (define cp-s (progression-seq cp))
   (define btones
@@ -287,12 +315,9 @@
           (vector f cp))
   (define parts
     (for/hasheq ([p (in-list (form-part-lens f))]
-                 [chord-pulses (in-list cps)])
+                 [chord-pulses*chord-rhythm (in-list cps*crs-s)])
+      (match-define (cons chord-pulses chord-rhythm) chord-pulses*chord-rhythm)
       (match-define (cons label len) p)
-      (define chord-rhythm
-        (for/list ([cp (in-list chord-pulses)])
-          (select-rhythm ts (* cp (accent-pattern-notes-per-pulse ap)))))
-      (printf "Rhythm: ~v x ~v => ~v\n" ts chord-pulses chord-rhythm)
       (define chord-track
         (split-into-measures
          ts ap
@@ -318,61 +343,82 @@
               chord-track)))
   (vector (time-sig-ts ts) (accent-pattern-accents ap) (form-pattern f) parts))
 
-(define (part/e ap cp measures p)
+(define/memo (part/e ts ap cp measures len)
   (define cp-s (progression-seq cp))
-  (match-define (cons _ len) p)
   (define pulses
     (* len measures (accent-pattern-pulses-per-measure ap)))
-  (chord-pulses/e
-   pulses
-   (length cp-s)))
+  (when #f
+    (map/e
+     (λ (cps)
+       (vector cps
+               (map (λ (cp)
+                      (from-nat (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap)))
+                                0))
+                    cps)))
+     error
+     (chord-pulses/e
+      pulses
+      (length cp-s))))
+  (define cp/e
+    (chord-pulses/e
+     pulses
+     (length cp-s)))
+  (dep/e
+   cp/e
+   (λ/memo (cps)
+           (traverse/e (λ (cp)
+                         (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap))))
+                       cps))))
 
-(define bithoven/e
+(define (make-bithoven/e)
   (vec/e
    (dep/e
-    (dep/e time-sig/e
-           (λ (ts)
-             (accent-pattern/e ts)))
-    (λ (ts*ap)
-      (match-define (cons ts ap) ts*ap)
-      (dep/e (cons/e form/e chord-progression/e)
-             (λ (f*cp)
-               (match-define (cons f cp) f*cp)
-               (define cp-s (progression-seq cp))
-               (define measures-per-part
-                 (*
-                  ;; Every chord has to get one pulse at least (thus division) and
-                  ;; we need a balance of measures (thus ceiling)
-                  (let ()
-                    (ceiling
-                     (/ (length cp-s)
-                        (accent-pattern-pulses-per-measure ap))))
-                  ;; If a form is long, then don't make each part long
-                  (let ()
-                    (define pat-length (length (form-pattern f)))
-                    (cond
-                     [(< pat-length 3) 4]
-                     [(< pat-length 5) 2]
-                     [else 1]))))
-               (traverse/e
-                (λ (p) (part/e ap cp measures-per-part p))
-                (form-part-lens f))))))
+    time-sig/e
+    (λ (ts)
+      (dep/e
+       (accent-pattern/e ts)
+       (λ (ap)
+         (dep/e (cons/e form/e chord-progression/e)
+                (λ (f*cp)
+                  (match-define (cons f cp) f*cp)
+                  (define cp-s (progression-seq cp))
+                  (define measures-per-part
+                    (*
+                     ;; Every chord has to get one pulse at least (thus division) and
+                     ;; we need a balance of measures (thus ceiling)
+                     (let ()
+                       (ceiling
+                        (/ (length cp-s)
+                           (accent-pattern-pulses-per-measure ap))))
+                     ;; If a form is long, then don't make each part long
+                     (let ()
+                       (define pat-length (length (form-pattern f)))
+                       (cond
+                        [(< pat-length 3) 4]
+                        [(< pat-length 5) 2]
+                        [else 1]))))
+                  (define/memo (this-kind-of-part/e len)
+                    (part/e ts ap cp measures-per-part len))
+                  (traverse/e
+                   (λ (p) (this-kind-of-part/e (cdr p)))
+                   (form-part-lens f))))))))
    bass-notes/e))
 
 (define (from-nat/random e)
   (define k (size e))
   (define n (random-natural k))
-  (local-require racket/format)  
+  (local-require racket/format)
   (define ks (~a k))
   (define ns (~a #:min-width (string-length ks) #:align 'right n))
   (printf "Using n =\n~a of\n~a\n\n" ns ks)
   (from-nat e n))
 
-(define (random-bithoven-input)
+(define (random-bithoven-input bithoven/e)
   (from-nat/random bithoven/e))
 
 (define (bithoven)
-  (define bi (random-bithoven-input))
+  (define bithoven/e (time (make-bithoven/e)))
+  (define bi (random-bithoven-input bithoven/e))
   (printf "bi is ~v\n" bi)
   (bithoven-input->composition bi))
 
