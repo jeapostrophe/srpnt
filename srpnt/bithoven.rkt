@@ -343,18 +343,6 @@
   (define cp-s (progression-seq cp))
   (define pulses
     (* len measures (accent-pattern-pulses-per-measure ap)))
-  (when #f
-    (map/e
-     (λ (cps)
-       (vector cps
-               (map (λ (cp)
-                      (from-nat (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap)))
-                                0))
-                    cps)))
-     error
-     (chord-pulses/e
-      pulses
-      (length cp-s))))
   (define cp/e
     (chord-pulses/e
      pulses
