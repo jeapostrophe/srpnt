@@ -363,55 +363,53 @@
         (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap))))
       cps))))
 
-(define (make-bithoven/e)
-  (vec/e
-   (dep/e
-    time-sig/e
-    (λ (ts)
-      (dep/e
-       (accent-pattern/e ts)
-       (λ (ap)
-         (dep/e (cons/e form/e chord-progression/e)
-                (λ (f*cp)
-                  (match-define (cons f cp) f*cp)
-                  (define cp-s (progression-seq cp))
-                  (define measures-per-part
-                    (*
-                     ;; Every chord has to get one pulse at least (thus division) and
-                     ;; we need a balance of measures (thus ceiling)
-                     (let ()
-                       (ceiling
-                        (/ (length cp-s)
-                           (accent-pattern-pulses-per-measure ap))))
-                     ;; If a form is long, then don't make each part long
-                     (let ()
-                       (define pat-length (length (form-pattern f)))
-                       (cond
-                        [(< pat-length 3) 4]
-                        [(< pat-length 5) 2]
-                        [else 1]))))
-                  (define/memo (this-kind-of-part/e len)
-                    (part/e ts ap cp measures-per-part len))
-                  (traverse/e
-                   (λ (p) (this-kind-of-part/e (cdr p)))
-                   (form-part-lens f))))))))
-   bass-notes/e))
+(define bithoven/e
+  (time
+   (vec/e
+    (dep/e
+     time-sig/e
+     (λ (ts)
+       (dep/e
+        (accent-pattern/e ts)
+        (λ (ap)
+          (dep/e (cons/e form/e chord-progression/e)
+                 (λ (f*cp)
+                   (match-define (cons f cp) f*cp)
+                   (define cp-s (progression-seq cp))
+                   (define measures-per-part
+                     (*
+                      ;; Every chord has to get one pulse at least (thus division) and
+                      ;; we need a balance of measures (thus ceiling)
+                      (let ()
+                        (ceiling
+                         (/ (length cp-s)
+                            (accent-pattern-pulses-per-measure ap))))
+                      ;; If a form is long, then don't make each part long
+                      (let ()
+                        (define pat-length (length (form-pattern f)))
+                        (cond
+                         [(< pat-length 3) 4]
+                         [(< pat-length 5) 2]
+                         [else 1]))))
+                   (define/memo (this-kind-of-part/e len)
+                     (part/e ts ap cp measures-per-part len))
+                   (traverse/e
+                    (λ (p) (this-kind-of-part/e (cdr p)))
+                    (form-part-lens f))))))))
+    bass-notes/e)))
 
-(define (from-nat/random e)
+(define (enum-random e)
   (define k (size e))
   (define n (random-natural k))
   (local-require racket/format)
   (define ks (~a k))
   (define ns (~a #:min-width (string-length ks) #:align 'right n))
   (printf "Using n =\n~a of\n~a\n\n" ns ks)
-  (from-nat e n))
-
-(define (random-bithoven-input bithoven/e)
-  (from-nat/random bithoven/e))
+  n)
 
 (define (bithoven)
-  (define bithoven/e (time (make-bithoven/e)))
-  (define bi (random-bithoven-input bithoven/e))
+  (define n (enum-random bithoven/e))
+  (define bi (from-nat bithoven/e n))
   (printf "bi is ~v\n" bi)
   (bithoven-input->composition bi))
 
