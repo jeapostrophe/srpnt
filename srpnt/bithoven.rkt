@@ -5,7 +5,8 @@
          racket/match
          srpnt/music-theory
          math/base
-         data/enumerate)
+         data/enumerate
+         data/enumerate/lib)
 (module+ test
   (require rackunit))
 
@@ -398,20 +399,26 @@
                     (form-part-lens f))))))))
     bass-notes/e)))
 
-(define (enum-random e)
-  (random-natural (size e)))
-
-(define (bithoven)
-  (define e (make-bithoven/e))
-  (define n (enum-random e))
+(define (random-index/printing e)
+  (define n (random-index e))
   (define k (size e))
   (local-require racket/format)
   (define ks (~a k))
   (define ns (~a #:min-width (string-length ks) #:align 'right n))
-  (printf "Bithoven: Using n =\n\t~a of\n\t~a\n\n" ns ks)
+  (printf "Using n =\n\t~a of\n\t~a\n\n" ns ks)
+  n)
+
+(define (bithoven)
+  (define e (make-bithoven/e))
+  (printf "Bithoven: ")
+  (define n (random-index/printing e))
   (define bi (from-nat e n))
   (printf "bi is ~v\n" bi)
-  (bithoven-input->composition bi))
+  (define c (bithoven-input->composition bi))
+  (let ()
+    (local-require racket/pretty)
+    (pretty-print c))
+  c)
 
 (module+ test
   (require racket/pretty)

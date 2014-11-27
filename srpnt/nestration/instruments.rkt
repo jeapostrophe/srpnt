@@ -1,7 +1,30 @@
 #lang racket/base
 (require srpnt/nestration/instrument)
 
-;; Drum periods... 
+(define (i:pulse:basic duty)
+  (i:pulse/spec
+   #:duty (spec:constant duty)
+   #:period (spec:constant 0)
+   #:volume (spec:constant 7)))
+
+;; xxx duty cycle modulation
+;; xxx plucky volume
+;; xxx vibrato
+;; xxx tremelo
+
+(define is:pulses
+  (list (i:pulse:basic 0)
+        (i:pulse:basic 1)
+        (i:pulse:basic 2)))
+
+(define i:triangle:basic
+  (i:triangle/spec
+   #:period (spec:constant 0)))
+
+(define is:triangles
+  (list i:triangle:basic))
+
+;; Drum periods...
 ;; 3, 4, 8 sound good
 ;; 9 is crunchy
 ;; 7 and C are okay
@@ -42,6 +65,24 @@
                #:period (spec:constant #xF)
                #:volume (spec:constant 0)))
 
+(define is:drums
+  (list
+   (i:drums (vector i:drum:hihat
+                    i:drum:bass
+                    i:drum:snare))
+   (i:drums (vector i:drum:hihat
+                    i:drum:snare
+                    i:drum:bass))
+   (i:drums (vector i:drum:off
+                    i:drum:snare
+                    i:drum:bass))
+   (i:drums (vector i:drum:off
+                    i:drum:bass
+                    i:drum:snare))
+   (i:drums (vector i:drum:off
+                    i:drum:off
+                    i:drum:off))))
+
 ;; xxx get more from here: http://en.wikipedia.org/wiki/Drum_beat
 (define beat:heavy-metal
   (list (cons 0.125 1) (cons 0.0625 1) (cons 0.0625 1)
@@ -78,5 +119,31 @@
         (cons 0.125 2) (cons 0.0625 0) (cons 0.0625 0)
         (cons 0.125 1) (cons 0.0625 0) (cons 0.0625 0)
         (cons 0.125 2) (cons 0.0625 0) (cons 0.0625 0)))
+
+(define beats:4/4
+  (list
+   beat:alternating-on
+   beat:straight-rock
+   beat:duple-triplets
+   beat:double-time
+   beat:blast-beat
+   beat:funk-beat
+   beat:heavy-metal))
+
+(define beats:4/4-one-accent
+  (list (list (cons 0.125 1) (cons 0.125 0)
+              (cons 0.125 0) (cons 0.125 0)
+              (cons 0.125 0) (cons 0.125 0)
+              (cons 0.125 0) (cons 0.125 0))
+        (list (cons 0.125 2) (cons 0.125 0)
+              (cons 0.125 0) (cons 0.125 0)
+              (cons 0.125 0) (cons 0.125 0)
+              (cons 0.125 0) (cons 0.125 0))))
+
+(define beats:3/4
+  (list
+   (list (cons 0.125 1) (cons 0.125 0)
+         (cons 0.125 0) (cons 0.125 0)
+         (cons 0.125 0) (cons 0.125 0))))
 
 (provide (all-defined-out))

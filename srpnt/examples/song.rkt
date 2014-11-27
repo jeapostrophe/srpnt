@@ -8,7 +8,10 @@
 (define sample-bs (read-sample/gzip 0 4 clip-path))
 
 (define main-track
-  (composition->track (bithoven) (nestration)))
+  (let ()
+    (define comp (bithoven))
+    (define strat (nestration comp))
+    (nes-harmonic comp strat)))
 (provide main-track)
 
 (module+ main

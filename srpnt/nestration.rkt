@@ -4,6 +4,8 @@
          racket/fixnum
          racket/flonum
          racket/math
+         data/enumerate
+         data/enumerate/lib
          srpnt/music
          srpnt/music-theory
          srpnt/tracker
@@ -28,43 +30,59 @@
       (define rest? (and rest-n (zero? (random rest-n))))
       (list* note (force-lazy-scale/tones scale rest? tones) more))))
 
-(define (select-from-list l)
-  (list-ref l (random (length l))))
-(provide select-from-list)
+(define tone-names/e
+  (from-list/e tone-names))
 
-(define (select-drum-measure ts ap)
-  ;; xxx make this more robust
+(define scales/e
+  (from-list/e scales))
+
+(define tempo/e
+  (range/e 40 500))
+
+(define rest-n/e
+  (fin/e #f 4 5 6 7 8 9 10 11 12 13 14 15 16))
+
+(define pulse/e (from-list/e is:pulses))
+(define triangle/e (from-list/e is:triangles))
+(define drums/e (from-list/e is:drums))
+
+(define mhb/e
+  (permutations-of-n/e 3))
+
+(define (drum-measure/e ts ap)
   (cond
    [(eq? ts ts:4:4)
     (match ap
       ['(#t #f #f #f)
-       (select-from-list
-        (list
-         (list (cons 0.125 1) (cons 0.125 0)
-               (cons 0.125 0) (cons 0.125 0)
-               (cons 0.125 0) (cons 0.125 0)
-               (cons 0.125 0) (cons 0.125 0))
-         (list (cons 0.125 2) (cons 0.125 0)
-               (cons 0.125 0) (cons 0.125 0)
-               (cons 0.125 0) (cons 0.125 0)
-               (cons 0.125 0) (cons 0.125 0))))]
+       (from-list/e
+        beats:4/4-one-accent)]
       [_
-       (select-from-list
-        (list
-         beat:alternating-on
-         beat:straight-rock
-         beat:duple-triplets
-         beat:double-time
-         beat:blast-beat
-         beat:funk-beat
-         beat:heavy-metal))])]
+       (from-list/e
+        beats:4/4)])]
    [(eq? ts ts:3:4)
-    (list (cons 0.125 1) (cons 0.125 0)
-          (cons 0.125 0) (cons 0.125 0)
-          (cons 0.125 0) (cons 0.125 0))]))
+    (from-list/e
+     beats:3/4)]))
 
-(define (nestration)
-  #f)
+(define (nestration/e c)
+  (match-define (vector ts ap pattern parts) c)
+  (vec/e tone-names/e scales/e tempo/e rest-n/e
+         pulse/e pulse/e triangle/e drums/e
+         mhb/e
+         (many/e (drum-measure/e ts ap)
+                 (hash-count parts))))
+
+(define (random-index/printing e)
+  (define n (random-index e))
+  (define k (size e))
+  (local-require racket/format)
+  (define ks (~a k))
+  (define ns (~a #:min-width (string-length ks) #:align 'right n))
+  (printf "Using n =\n\t~a of\n\t~a\n\n" ns ks)
+  n)
+
+(define (nestration c)
+  (define n/e (nestration/e c))
+  (from-nat n/e (random-index/printing n/e)))
 
 ;; xxx new interface: submit composition, arrangement, and
 ;; effects. have the player store some state (like what part, what
@@ -73,140 +91,53 @@
 ;; state. every frame, evaluate the composition on the frame number to
 ;; get the instruments.
 
-(define (composition->track c a)
-  (define (convert scale-kind rest-n tempo drums?)
-    (define scale-root (select-from-list tone-names))
-    (define scale (scale-kind scale-root))
-    (convert-with scale rest-n tempo drums?))
+(define (nes-harmonic c s)
+  (match-define (vector ts ap pattern parts) c)
+  (match-define (vector scale-root scale-kind tempo rest-n
+                        pulse1 pulse2 triangle drum
+                        mhb dms)
+                s)
+  (define scale (scale-kind scale-root))
 
   (let ()
     (local-require racket/pretty)
-    (pretty-print c))
+    (pretty-print s))
 
-  (match-define (vector ts ap pattern parts) c)
-  ;; xxx choose this (and make sure every instrument can play the notes)
+  ;; xxx choose this (and make sure every instrument can play the
+  ;; notes) and choose the gaps between MHB
   (define base-octave 3)
+  (define melody-up 1)
+  (define bass-down 1)
 
-  (define (convert-with scale rest-n tempo drums?)
-    (printf "Tempo is ~v\n" tempo)
-    (chorded-song->commands*
-     #:me
-     (cons 0.25 tempo)
-     #:ts ts
-     #:drum
-     ;; xxx generate this
-     (cond
-      [drums?
-       (i:drums (vector i:drum:hihat
-                        i:drum:bass
-                        i:drum:snare))]
-      [else
-       (i:drums (vector i:drum:off i:drum:off i:drum:off))])
-     #:instruments
-     ;; xxx generate this
-     (let ()
-       (match-define
-        (list melody harmony bass)
-        ((if #t (λ (x) x) shuffle)
-         (list (i:pulse/spec
-                #:duty
-                (or (spec:constant 2)
-                    (spec:adsr 'sustain
-                               0 (spec:constant 0)
-                               0 (spec:constant 0)
-                               1 (spec:modulate 440.0 2 1)
-                               0 (spec:constant 0)))
-                #:period
-                (or (spec:constant 0)
-                    (spec:adsr 'sustain
-                               20 (spec:linear -5 5)
-                               05 (spec:linear 5 0)
-                               10 (spec:constant 0)
-                               05 (spec:linear 0 -5))
-                    (spec:adsr 'sustain
-                               0 (spec:constant 0)
-                               0 (spec:constant 0)
-                               1 (spec:modulate 440.0 0 10)
-                               0 (spec:constant 0)))
-                #:volume
-                (or (spec:adsr 'sustain
-                               10 (spec:linear 10 10)
-                               10 (spec:linear 8 8)
-                               10 (spec:linear 6 6)
-                               10 (spec:linear 0 0))
-                    (spec:constant 6)
-                    (spec:adsr 'sustain
-                               05 (spec:linear 0 15)
-                               05 (spec:linear 15 6)
-                               10 (spec:modulate 440.0 6 4)
-                               05 (spec:linear 6 0))
-                    (spec:adsr 'sustain
-                               05 (spec:linear 0 15)
-                               05 (spec:linear 15 6)
-                               10 (spec:linear 6 6)
-                               10 (spec:linear 6 0))))
-               (or
-                (i:pulse/spec
-                 #:duty
-                 (or (spec:constant 2)
-                     (spec:adsr 'sustain
-                                0 (spec:constant 0)
-                                0 (spec:constant 0)
-                                1 (spec:modulate 880.0 2 1)
-                                0 (spec:constant 0)))
-                 #:period (spec:constant 0)
-                 #:volume (spec:constant 6))
-                (i:pulse/spec
-                 #:duty (spec:constant 2)
-                 #:period
-                 (spec:adsr 'sustain
-                            0 (spec:constant #f)
-                            0 (spec:constant #f)
-                            1 (spec:modulate 440.0 0 2)
-                            0 (spec:constant #f))
-                 #:volume (spec:adsr 'sustain
-                                     4 (spec:constant 15)
-                                     9 (spec:linear 15 6)
-                                     0 (spec:constant 0)
-                                     0 (spec:constant 0))))
-               (i:triangle/spec
-                #:period
-                (or (spec:adsr 'sustain
-                               0 (spec:constant 0)
-                               0 (spec:constant 0)
-                               1 (spec:modulate 880.0 0 5)
-                               0 (spec:constant 0))
-                    (spec:constant 0))))))
-       (vector (cons melody (fx+ base-octave 1))
-               (cons harmony base-octave)
-               (cons bass (fx- base-octave 1))))
-     #:measures
+  (printf "Tempo is ~v\n" tempo)
+  (chorded-song->commands*
+   #:me (cons 0.25 tempo)
+   #:ts ts
+   #:drum drum
+   #:instruments
+   (let ()
+     (define instruments (vector pulse1 pulse2 triangle))
+     (match-define (list melody-idx harmony-idx bass-idx) mhb)
+     (vector (cons (vector-ref instruments melody-idx)
+                   (fx+ base-octave melody-up))
+             (cons (vector-ref instruments harmony-idx)
+                   base-octave)
+             (cons (vector-ref instruments bass-idx)
+                   (fx- base-octave bass-down))))
+   #:measures
+   (append*
+    (for/list ([p (in-list pattern)])
+      (force-lazy-scale/measures scale rest-n (hash-ref parts p))))
+   #:drum-measures
+   (let ()
+     (define part->dms (make-hash))
+     (for ([(p ms) (in-hash parts)]
+           [dm (in-list dms)])
+       (hash-set! part->dms p
+                  (for/list ([m (in-list ms)]) dm)))
      (append*
       (for/list ([p (in-list pattern)])
-        (force-lazy-scale/measures scale rest-n (hash-ref parts p))))
-     #:drum-measures
-     (let ()
-       (define part->dms (make-hash))
-       (append*
-        (for/list ([p (in-list pattern)])
-          (hash-ref! part->dms p
-                     (λ ()
-                       (define dm (select-drum-measure ts ap))
-                       (define ms (hash-ref parts p))
-                       (for/list ([m (in-list ms)]) dm))))))))
+        (hash-ref part->dms p))))))
 
-  (when #f
-    (list
-     (convert scale-diatonic-major 8 480 #f)
-     (convert scale-diatonic-major 8 280 #t)
-     (convert scale-diminished #f 90 #t)
-     (convert scale-harmonic-minor 16 210 #t)
-     (convert (select-from-list scales)
-              (and (zero? (random 2)) (+ 4 (random 8)))
-              (+ 50 (random 400))
-              #t)))
-
-  (convert scale-diatonic-major 8 140 #t))
-
-(provide composition->track
+(provide nes-harmonic
          nestration)
