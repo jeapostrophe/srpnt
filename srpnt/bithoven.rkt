@@ -3,6 +3,7 @@
          racket/fixnum
          racket/flonum
          racket/match
+         racket/promise
          srpnt/music-theory
          math/base
          data/enumerate
@@ -364,40 +365,42 @@
         (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap))))
       cps))))
 
-(define (make-bithoven/e)
-  (time
-   (vec/e
-    (dep/e
-     time-sig/e
-     (λ (ts)
-       (dep/e
-        (accent-pattern/e ts)
-        (λ (ap)
-          (dep/e (cons/e form/e chord-progression/e)
-                 (λ (f*cp)
-                   (match-define (cons f cp) f*cp)
-                   (define cp-s (progression-seq cp))
-                   (define measures-per-part
-                     (*
-                      ;; Every chord has to get one pulse at least (thus division) and
-                      ;; we need a balance of measures (thus ceiling)
-                      (let ()
-                        (ceiling
-                         (/ (length cp-s)
-                            (accent-pattern-pulses-per-measure ap))))
-                      ;; If a form is long, then don't make each part long
-                      (let ()
-                        (define pat-length (length (form-pattern f)))
-                        (cond
-                         [(< pat-length 3) 4]
-                         [(< pat-length 5) 2]
-                         [else 1]))))
-                   (define/memo (this-kind-of-part/e len)
-                     (part/e ts ap cp measures-per-part len))
-                   (traverse/e
-                    (λ (p) (this-kind-of-part/e (cdr p)))
-                    (form-part-lens f))))))))
-    bass-notes/e)))
+(define bithoven/e
+  (delay
+    (time
+     (vec/e
+      (dep/e
+       time-sig/e
+       (λ (ts)
+         (dep/e
+          (accent-pattern/e ts)
+          (λ (ap)
+            (dep/e
+             (cons/e form/e chord-progression/e)
+             (λ (f*cp)
+               (match-define (cons f cp) f*cp)
+               (define cp-s (progression-seq cp))
+               (define measures-per-part
+                 (*
+                  ;; Every chord has to get one pulse at least (thus division) and
+                  ;; we need a balance of measures (thus ceiling)
+                  (let ()
+                    (ceiling
+                     (/ (length cp-s)
+                        (accent-pattern-pulses-per-measure ap))))
+                  ;; If a form is long, then don't make each part long
+                  (let ()
+                    (define pat-length (length (form-pattern f)))
+                    (cond
+                     [(< pat-length 3) 4]
+                     [(< pat-length 5) 2]
+                     [else 1]))))
+               (define/memo (this-kind-of-part/e len)
+                 (part/e ts ap cp measures-per-part len))
+               (traverse/e
+                (λ (p) (this-kind-of-part/e (cdr p)))
+                (form-part-lens f))))))))
+      bass-notes/e))))
 
 (define (random-index/printing e)
   (define n (random-index e))
@@ -409,7 +412,7 @@
   n)
 
 (define (bithoven)
-  (define e (make-bithoven/e))
+  (define e (force bithoven/e))
   (printf "Bithoven: ")
   (define n (random-index/printing e))
   (define bi (from-nat e n))
