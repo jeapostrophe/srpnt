@@ -84,6 +84,8 @@
                     i:drum:off))))
 
 ;; xxx get more from here: http://en.wikipedia.org/wiki/Drum_beat
+
+;; xxx study the awesome beats of sin and punishment 2
 (define beat:heavy-metal
   (list (cons 0.125 1) (cons 0.0625 1) (cons 0.0625 1)
         (cons 0.125 2) (cons 0.0625 1) (cons 0.0625 1)
