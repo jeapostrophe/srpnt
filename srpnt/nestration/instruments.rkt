@@ -1,5 +1,6 @@
 #lang racket/base
-(require srpnt/nestration/instrument)
+(require racket/fixnum
+         srpnt/nestration/instrument)
 
 (define i:pulse:off
   (i:pulse/spec
@@ -13,44 +14,119 @@
    #:period (spec:constant 0)
    #:volume (spec:constant 7)))
 
-;; xxx duty cycle modulation
-;; xxx plucky volume
-;; xxx vibrato
-;; xxx tremelo
+(define (i:pulse:modulating freq)
+  (i:pulse/spec
+   #:duty (spec:% (spec:modulate freq 1 1))
+   #:period (spec:constant 0)
+   #:volume (spec:constant 7)))
 
+(define (i:pulse:plucky duty)
+  (i:pulse/spec
+   #:duty (spec:constant duty)
+   #:period (spec:constant 0)
+   #:volume
+   (spec:adsr 'release
+              4 (spec:constant 14)
+              4 (spec:linear 14 7)
+              4 (spec:constant 7)
+              4 (spec:linear 7 0))))
+
+(define (i:pulse:natural duty)
+  (i:pulse/spec
+   #:duty (spec:constant duty)
+   #:period (spec:constant 0)
+   #:volume
+   (spec:adsr 'sustain
+              4 (spec:constant 14)
+              4 (spec:linear 14 7)
+              4 (spec:constant 7)
+              4 (spec:linear 7 0))))
+
+(define (i:pulse:vibrato freq duty)
+  (i:pulse/spec
+   #:duty (spec:constant duty)
+   #:period (spec:% (spec:modulate freq 0 5))
+   #:volume (spec:constant 7)))
+
+(define (i:pulse:tremolo freq duty)
+  (i:pulse/spec
+   #:duty (spec:constant duty)
+   #:period (spec:constant 0)
+   #:volume (spec:% (spec:modulate freq 7 4))))
+
+(define duties '(0 1 2))
 (define is:pulses
-  (list (i:pulse:basic 0)
-        (i:pulse:basic 1)
-        (i:pulse:basic 2)))
+  (append
+   (map i:pulse:basic duties)
+   (list (i:pulse:modulating 60.0)
+         (i:pulse:modulating 140.0))
+   (map i:pulse:plucky duties)
+   (map i:pulse:natural duties)
+   (for*/list ([duty (in-list duties)]
+               [freq (in-list (list 5.0 6.5))])
+     (i:pulse:vibrato freq duty))
+   (for*/list ([duty (in-list duties)]
+               [freq (in-list (list 10.0 60.0 120.0))])
+     (i:pulse:tremolo freq duty))))
 
 (define i:triangle:off
   (i:triangle/spec
-   #:on? #f
+   #:on? (spec:constant #f)
    #:period (spec:constant 0)))
 
 (define i:triangle:basic
   (i:triangle/spec
-   #:on? #t
+   #:on? (spec:constant #t)
+   #:period (spec:constant 0)))
+
+(define (i:triangle:vibrato freq)
+  (i:triangle/spec
+   #:on? (spec:constant #t)
+   #:period (spec:% (spec:modulate freq 0 5))))
+
+(define (i:triangle:tremoloish freq)
+  (i:triangle/spec
+   #:on? (spec:%
+          (spec:bind (spec:modulate freq 0 1)
+                     (λ (v) (fx<= 0 v))))
+   #:period (spec:constant 0)))
+
+(define i:triangle:plucky
+  (i:triangle/spec
+   #:on?
+   (spec:adsr 'release
+              4 (spec:constant #t)
+              4 (spec:constant #t)
+              4 (spec:constant #t)
+              8 (spec:constant #f))
    #:period (spec:constant 0)))
 
 (define is:triangles
-  (list i:triangle:basic))
+  (list i:triangle:basic
+        (i:triangle:vibrato 5.0)
+        (i:triangle:vibrato 6.5)
+        i:triangle:plucky))
 
 ;; Drum periods...
 ;; 3, 4, 8 sound good
 ;; 9 is crunchy
 ;; 7 and C are okay
 
-;; xxx look up better formulas?
+;; xxx look up better formulas?, try mode/period changes
+(define hihat-adsr
+  (spec:adsr 'release
+             1 (spec:constant 4)
+             2 (spec:constant 3)
+             4 (spec:constant 2)
+             4 (spec:constant 0)))
 (define i:drum:hihat
   (i:drum/spec #:mode (spec:constant #f)
                #:period (spec:constant #xC)
-               #:volume
-               (spec:adsr 'release
-                          1 (spec:constant 4)
-                          2 (spec:constant 3)
-                          4 (spec:constant 2)
-                          4 (spec:constant 0))))
+               #:volume hihat-adsr))
+(define i:drum:hihat:metal
+  (i:drum/spec #:mode (spec:constant #t)
+               #:period (spec:constant #xC)
+               #:volume hihat-adsr))
 
 (define i:drum:bass
   (i:drum/spec #:mode (spec:constant #f)
@@ -62,20 +138,33 @@
                           4 (spec:linear 4 2)
                           4 (spec:constant 0))))
 
+(define snare-adsr
+  (spec:adsr 'release
+             1 (spec:constant 11)
+             4 (spec:linear 11 6)
+             8 (spec:linear 6 2)
+             4 (spec:constant 0)))
 (define i:drum:snare
   (i:drum/spec #:mode (spec:constant #f)
                #:period (spec:constant 7)
-               #:volume
-               (spec:adsr 'release
-                          1 (spec:constant 11)
-                          4 (spec:linear 11 6)
-                          8 (spec:linear 6 2)
-                          4 (spec:constant 0))))
+               #:volume snare-adsr))
+(define i:drum:snare:metal
+  (i:drum/spec #:mode (spec:constant #t)
+               #:period (spec:constant 7)
+               #:volume snare-adsr))
 
 (define i:drum:off
   (i:drum/spec #:mode (spec:constant #f)
                #:period (spec:constant #xF)
                #:volume (spec:constant 0)))
+
+(define is:drum
+  (list i:drum:off
+        i:drum:hihat
+        i:drum:hihat:metal
+        i:drum:snare
+        i:drum:snare:metal
+        i:drum:bass))
 
 (define i:drums:off
   (i:drums (vector i:drum:off i:drum:off i:drum:off)))
@@ -84,19 +173,12 @@
   (i:drums (vector i:drum:hihat i:drum:bass i:drum:snare)))
 
 (define is:drums
-  (list i:drums:basic
-        (i:drums (vector i:drum:hihat
-                         i:drum:snare
-                         i:drum:bass))
-        (i:drums (vector i:drum:off
-                         i:drum:snare
-                         i:drum:bass))
-        (i:drums (vector i:drum:off
-                         i:drum:bass
-                         i:drum:snare))
-        (i:drums (vector i:drum:off
-                         i:drum:off
-                         i:drum:off))))
+  (for*/list ([hihat (in-list is:drum)]
+              [bass (in-list is:drum)]
+              [snare (in-list is:drum)]
+              #:unless (and (eq? hihat bass)
+                            (eq? bass snare)))
+    (i:drums (vector hihat bass snare))))
 
 ;; xxx get more from here: http://en.wikipedia.org/wiki/Drum_beat
 
@@ -163,4 +245,5 @@
          (cons 0.125 0) (cons 0.125 0)
          (cons 0.125 0) (cons 0.125 0))))
 
-(provide (all-defined-out))
+(provide i:drums
+         (all-defined-out))

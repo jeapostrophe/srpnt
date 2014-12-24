@@ -89,7 +89,8 @@
 ;; framework are different oscillating effects
 
 (define (modulate freq.0 base extent %.0)
-  (define sx (flsin (fl* (fl/ freq.0 60.0) (fl* %.0 (fl* 2.0 pi)))))
+  (define freq-split.0 (fl/ freq.0 60.0))
+  (define sx (flsin (fl* freq-split.0 (fl* %.0 (fl* 2.0 pi)))))
   (define diff (fl->fx (flround (fl* (fx->fl extent) sx))))
   (fx+ base diff))
 
@@ -118,8 +119,10 @@
 (struct spec ())
 (struct spec:constant spec (v))
 (struct spec:adsr spec (expander a as d ds s ss r rs))
+(struct spec:% spec (ns))
 (struct spec:linear spec (lo hi))
 (struct spec:apply spec (f ns))
+(struct spec:bind spec (ns f))
 (struct spec:modulate spec (freq base extent))
 (struct staged ())
 (struct staged:adsr spec (fun map))
@@ -127,6 +130,8 @@
   (match s
     [(spec:adsr e a as d ds s ss r rs)
      (staged:adsr ((adsr e a d s r) f) (vector as ds ss rs))]
+    [(spec:% ns)
+     (spec:apply (λ (n) (fl/ (fx->fl n) (fx->fl f))) ns)]
     [_ s]))
 (define (eval-spec s f)
   (match s
@@ -137,6 +142,8 @@
      v]
     [(spec:apply fun ns)
      (eval-spec ns (fun f))]
+    [(spec:bind ns fun)
+     (fun (eval-spec ns f))]
     [(spec:modulate freq base extent)
      (modulate freq base extent f)]
     [(spec:linear lo hi)
@@ -156,13 +163,15 @@
       (define volume (fxmin 15 (fxmax 0 (fx+ base-volume (eval-spec v* f)))))
       (wave:pulse duty per volume))))
 
-(define (i:triangle/spec #:on? on? #:period pspec)
+(define (i:triangle/spec #:on? on?spec #:period pspec)
   (λ (frames tone*accent?)
+    (define on?* (stage-spec on?spec frames))
     (define p* (stage-spec pspec frames))
     (match-define (cons tone accent?) tone*accent?)
     (define base-per (triangle-tone->period tone))
     (for/list ([f (in-range frames)])
       (define per (fx+ base-per (eval-spec p* f)))
+      (define on? (eval-spec on?* f))
       (wave:triangle on? per))))
 
 (define (i:drum/spec #:mode mspec #:period pspec #:volume vspec)
