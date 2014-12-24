@@ -7,12 +7,17 @@
 (define-runtime-path clip-path "clip.raw.gz")
 (define sample-bs (read-sample/gzip 0 4 clip-path))
 
+(define (make-main-track)
+  (define comp (bithoven))
+  (define strat (nestration comp))
+  (nes-harmonic comp strat))
+
 (define main-track
-  (let ()
-    (define comp (bithoven))
-    (define strat (nestration comp))
-    (nes-harmonic comp strat)))
+  (make-main-track))
 (provide main-track)
 
 (module+ main
-  (play-one! main-track))
+  (let loop ()
+    (with-handlers ([exn:fail? void])
+      (play-one! (make-main-track)))
+    (loop)))
