@@ -1,0 +1,51 @@
+#lang racket/base
+(require racket/list
+         srpnt/music-theory
+         srpnt/nestration/instruments)
+
+(define (basic-audio pulse1 pulse2 triangle drums drum-measure)
+  (define the-scale scale-diatonic-major)
+  (define how-many-notes-in-scale (length (the-scale 'C)))
+  (define how-many-notes-in-updown-scale (* 2 how-many-notes-in-scale))
+  (define how-many-notes (lcm 4 how-many-notes-in-updown-scale))
+  (define how-many-measures (quotient how-many-notes 4))
+  (cons (vector
+         ts:4:4 '(#f #f #f #f)
+         '(P)
+         (hasheq 'P
+                 (for/list ([mi (in-range how-many-measures)])
+                   (for/list ([ni (in-range 4)])
+                     (define i (+ (* mi 4) ni))
+                     (define updown-off
+                       (remainder i how-many-notes-in-updown-scale))
+                     (define off
+                       (if (< updown-off how-many-notes-in-scale)
+                           updown-off
+                           (- how-many-notes-in-scale
+                              (- updown-off how-many-notes-in-scale))))
+                     `(0.25
+                       ((,off . 0) (,off . 0) (,off . 0))
+                       . #f)))))
+        (vector 'C the-scale 120
+                pulse1 pulse2 triangle drums
+                (list 0 1 2) 4 0 0
+                (hasheq 'P drum-measure)
+                (hasheq 'P
+                        (cons #f empty)))))
+
+(define (test-pulse pulse)
+  (basic-audio i:pulse:off pulse i:triangle:off i:drums:off beat:straight-rock))
+(define (test-triangle triangle)
+  (basic-audio i:pulse:off i:pulse:off triangle i:drums:off beat:straight-rock))
+(define (test-drums drums)
+  (basic-audio i:pulse:off i:pulse:off i:triangle:off drums beat:straight-rock))
+(define (test-drum-beat beat)
+  (basic-audio i:pulse:off i:pulse:off i:triangle:off i:drums:basic beat))
+
+(define audio
+  (or (test-drum-beat beat:blast-beat)
+      (test-pulse (i:pulse:basic 2))
+      (test-triangle i:triangle:basic)
+      (test-drums i:drums:basic)))
+
+(provide audio)

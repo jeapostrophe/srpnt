@@ -1,6 +1,12 @@
 #lang racket/base
 (require srpnt/nestration/instrument)
 
+(define i:pulse:off
+  (i:pulse/spec
+   #:duty (spec:constant 0)
+   #:period (spec:constant 0)
+   #:volume (spec:constant 0)))
+
 (define (i:pulse:basic duty)
   (i:pulse/spec
    #:duty (spec:constant duty)
@@ -17,8 +23,14 @@
         (i:pulse:basic 1)
         (i:pulse:basic 2)))
 
+(define i:triangle:off
+  (i:triangle/spec
+   #:on? #f
+   #:period (spec:constant 0)))
+
 (define i:triangle:basic
   (i:triangle/spec
+   #:on? #t
    #:period (spec:constant 0)))
 
 (define is:triangles
@@ -65,23 +77,26 @@
                #:period (spec:constant #xF)
                #:volume (spec:constant 0)))
 
+(define i:drums:off
+  (i:drums (vector i:drum:off i:drum:off i:drum:off)))
+
+(define i:drums:basic
+  (i:drums (vector i:drum:hihat i:drum:bass i:drum:snare)))
+
 (define is:drums
-  (list
-   (i:drums (vector i:drum:hihat
-                    i:drum:bass
-                    i:drum:snare))
-   (i:drums (vector i:drum:hihat
-                    i:drum:snare
-                    i:drum:bass))
-   (i:drums (vector i:drum:off
-                    i:drum:snare
-                    i:drum:bass))
-   (i:drums (vector i:drum:off
-                    i:drum:bass
-                    i:drum:snare))
-   (i:drums (vector i:drum:off
-                    i:drum:off
-                    i:drum:off))))
+  (list i:drums:basic
+        (i:drums (vector i:drum:hihat
+                         i:drum:snare
+                         i:drum:bass))
+        (i:drums (vector i:drum:off
+                         i:drum:snare
+                         i:drum:bass))
+        (i:drums (vector i:drum:off
+                         i:drum:bass
+                         i:drum:snare))
+        (i:drums (vector i:drum:off
+                         i:drum:off
+                         i:drum:off))))
 
 ;; xxx get more from here: http://en.wikipedia.org/wiki/Drum_beat
 

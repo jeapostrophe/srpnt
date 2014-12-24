@@ -156,14 +156,14 @@
       (define volume (fxmin 15 (fxmax 0 (fx+ base-volume (eval-spec v* f)))))
       (wave:pulse duty per volume))))
 
-(define (i:triangle/spec #:period pspec)
+(define (i:triangle/spec #:on? on? #:period pspec)
   (λ (frames tone*accent?)
     (define p* (stage-spec pspec frames))
     (match-define (cons tone accent?) tone*accent?)
     (define base-per (triangle-tone->period tone))
     (for/list ([f (in-range frames)])
       (define per (fx+ base-per (eval-spec p* f)))
-      (wave:triangle #t per))))
+      (wave:triangle on? per))))
 
 (define (i:drum/spec #:mode mspec #:period pspec #:volume vspec)
   (λ (frames)
