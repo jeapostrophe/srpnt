@@ -6,7 +6,7 @@
 (define (load-audio mp)
   (define ns (make-base-namespace))
   (namespace-attach-module (current-namespace) 'racket/base ns)
-  (namespace-attach-module (current-namespace) 'srpnt/nestration ns)
+  (namespace-attach-module (current-namespace) 'srpnt/player ns)
   (parameterize ([current-namespace ns])
     (namespace-require `(file ,mp))
     (namespace-variable-value 'audio)))
@@ -33,11 +33,7 @@
                  (λ (_)
                    (loop (make-playing-thread) fs-evts)))
      (for/list ([fs-evt (in-list fs-evts)])
-       (handle-evt fs-evt reload-handler))))
-  
-  (thread-wait
-   )
-  (studio file-path other-files))
+       (handle-evt fs-evt reload-handler)))))
 
 (module+ main
   (require racket/cmdline)
