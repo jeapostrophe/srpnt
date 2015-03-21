@@ -1,5 +1,6 @@
 #lang racket/base
 (require racket/runtime-path
+         racket/match
          srpnt/music
          srpnt/bithoven
          srpnt/nestration)
@@ -10,11 +11,16 @@
 (define (make-main-track)
   (define comp (bithoven))
   (define strat (nestration comp))
-  (nes-harmonic comp strat))
+  (cons comp strat))
 
 (define main-track
-  (make-main-track))
+  (let ()
+    (match-define (cons comp strat) (make-main-track))
+    (nes-harmonic comp strat)))
 (provide main-track)
+
+(define audio (make-main-track))
+(provide audio)
 
 (module+ main
   (let loop ()

@@ -55,13 +55,16 @@
    #:volume (spec:% (spec:modulate freq 7 4))))
 
 (define duties '(0 1 2))
-(define is:pulses
+(define is:pulses-classic
   (append
    (map i:pulse:basic duties)
+   (map i:pulse:plucky duties)
+   (map i:pulse:natural duties)))
+(define is:pulses
+  (append
+   is:pulses-classic
    (list (i:pulse:modulating 60.0)
          (i:pulse:modulating 140.0))
-   (map i:pulse:plucky duties)
-   (map i:pulse:natural duties)
    (for*/list ([duty (in-list duties)]
                [freq (in-list (list 5.0 6.5))])
      (i:pulse:vibrato freq duty))

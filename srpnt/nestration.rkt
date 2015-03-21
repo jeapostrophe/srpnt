@@ -6,6 +6,7 @@
          racket/math
          data/enumerate
          data/enumerate/lib
+         srpnt/enum-util
          srpnt/music
          srpnt/music-theory
          srpnt/tracker
@@ -34,11 +35,8 @@
 (define tone-names/e
   (from-list/e tone-names))
 
-(define scales/e
-  (from-list/e scales))
-
-(define tempo/e
-  (range/e 40 500))
+(define scales/e (from-list/e scales))
+(define tempo/e (range/e 40 500))
 
 (define rest-n/e
   (fin/e #f 4 5 6 7 8 9 10 11 12 13 14 15 16))
@@ -64,15 +62,54 @@
     (from-list/e
      beats:3/4)]))
 
-(define (nestration/e c)
+(struct style
+  (name tone-names/e scales/e tempo/e pulse1/e pulse2/e triangle/e drums/e mhb/e))
+
+(define-syntax-rule (define-styles styles [id . expr] ...)
+  (begin (define id (style . expr)) ...
+         (define styles (list id ...))
+         (provide style-name styles id ...)))
+
+(define-styles styles
+  [style:classic
+   "Classic"
+   tone-names/e (fin/e scale-diatonic-major) (range/e 160 300)
+   (from-list/e is:pulses-classic)
+   (from-list/e is:pulses-classic) 
+   (from-list/e (list i:triangle:basic i:triangle:plucky)) 
+   (fin/e i:drums:basic)
+   (fin/e (list 0 1 2))]
+  [style:happy
+   "Happy"
+   tone-names/e (fin/e scale-diatonic-major) (fin/e 200)
+   pulse/e pulse/e triangle/e drums/e mhb/e]
+  [style:sad
+   "Sad"
+   tone-names/e (fin/e scale-harmonic-minor) (fin/e 120)
+   pulse/e pulse/e triangle/e drums/e mhb/e]
+  [style:all
+   "ALL"
+   tone-names/e scales/e tempo/e pulse/e pulse/e triangle/e drums/e mhb/e])
+
+(define (nestration/e
+         #:style [style style:all]
+         #:tone-names/e [tone-names/e (style-tone-names/e style)]
+         #:scales/e [scales/e (style-scales/e style)]
+         #:tempo/e [tempo/e (style-tempo/e style)]
+         #:pulse1/e [pulse1/e (style-pulse1/e style)]
+         #:pulse2/e [pulse2/e (style-pulse2/e style)]
+         #:triangle/e [triangle/e (style-triangle/e style)]
+         #:drums/e [drums/e (style-drums/e style)]
+         #:mhb/e [mhb/e (style-mhb/e style)]
+         c)
   (match-define (vector ts ap pattern parts) c)
   (vec/e tone-names/e scales/e tempo/e
-         pulse/e pulse/e triangle/e drums/e
+         pulse1/e pulse2/e triangle/e drums/e
          mhb/e
          ;; xxx these should be dependent on the instruments and how
          ;; they will be used, because the pulse can't go very low and
          ;; the triangle can't go very high
-         (fin/e 3 4) (fin/e 1 2) (fin/e 1 2)
+         (fin/e 2 3) (fin/e 1 2) (fin/e 1 2)
          (hash-traverse/e
           (λ (_) (drum-measure/e ts ap))
           parts)
@@ -87,18 +124,13 @@
                          (const/e '())))))
           parts)))
 
-(define (random-index/printing e)
-  (define n (random-index e))
-  (define k (size e))
-  (local-require racket/format)
-  (define ks (~a k))
-  (define ns (~a #:min-width (string-length ks) #:align 'right n))
-  (printf "Using n =\n\t~a of\n\t~a\n\n" ns ks)
-  n)
+(define (nestration+idx c #:n/e [n/e (nestration/e c)])
+  (define n (random-index/printing n/e))
+  (values n (from-nat n/e n)))
 
-(define (nestration c)
-  (define n/e (nestration/e c))
-  (from-nat n/e (random-index/printing n/e)))
+(define (nestration c #:n/e [n/e (nestration/e c)])
+  (define-values (a b) (nestration+idx c #:n/e n/e))
+  b)
 
 ;; xxx new interface: submit composition, arrangement, and
 ;; effects. have the player store some state (like what part, what
@@ -182,4 +214,6 @@
         (hash-ref part->dms p))))))
 
 (provide nes-harmonic
-         nestration)
+         nestration
+         nestration+idx
+         nestration/e)

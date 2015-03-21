@@ -4,6 +4,8 @@
          racket/fixnum
          racket/performance-hint)
 
+(define AUTHENTIC? #f)
+
 ;; The NES APU is synchronized with the clock of the CPU and all of
 ;; its sounds are specified by period (i.e. iterations of the CPU per
 ;; cycle) rather than frequency (cycles per second). We could do a
@@ -20,9 +22,11 @@
 (define (pulse-freq->period freq)
   (define pre-period (fl/ CPU-FREQ-Hz (fl* 16.0 freq)))
   (define r (fl->fx (flround (fl- pre-period 1.0))))
-  (if (and (fx<= 0 r) (fx<= r max-pulse-period))
-      r
-      #f))
+  (if AUTHENTIC?
+      (if (and (fx<= 0 r) (fx<= r max-pulse-period))
+          r
+          #f)
+      r))
 
 ;; The triangle wave actually runs twice as slow which makes its
 ;; sounds lower and makes it so a period twice as long gets the same
