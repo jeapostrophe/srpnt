@@ -1,6 +1,7 @@
 #lang racket/base
 (require racket/list
          racket/fixnum
+         racket/contract
          racket/flonum
          racket/match
          racket/promise
@@ -43,7 +44,7 @@
    (list (accent-pattern "waltz"  1 '(#t #f #f)))))
 
 (define (accent-pattern/e ts)
-  (from-list/e (hash-ref time-sig->accents ts)))
+  (apply fin/e (hash-ref time-sig->accents ts)))
 
 (define (accent-pattern-notes-per-pulse ap)
   (match-define (accent-pattern _ ppm as) ap)
@@ -79,9 +80,6 @@
    (form "asym rondo"
          '((A . 1) (B . 1) (C . 1) (D . 1) (E . 1))
          '(A B A C A D A E A))
-   (form "sym rondo"
-         '((A . 1) (B . 1) (C . 1))
-         '(A B A C A B A))
    (form "sym rondo"
          '((A . 1) (B . 1) (C . 1))
          '(A B A C A B A))
@@ -135,7 +133,6 @@
    ;; 50s
    (progression '(0 3 4))
    (progression '(0 5 3 4))
-   (progression '(0 5 1 4))
    ;; circle
    (progression '(5 1 4 0))
    ;; xxx too big
@@ -165,9 +162,14 @@
            n k))
   (cond
    [(= 1 n)
-    (const/e (list k))]
+    (single/e (list k))]
    [else
-    (dep/e (map/e add1 sub1 (below/e (+ 1 (- k n))))
+    (dep/e (map/e add1 sub1 
+                  ;; xxx really this number is restricted in range
+                  #:contract number?
+                  (below/e (+ 1 (- k n))))
+           #:f-range-finite? #t
+           #:flat? #t
            (λ (this)
              (list-of-length-n-summing-to-k-with-no-zeros/e
               (- n 1)
@@ -177,7 +179,7 @@
   (printf "16 x 3 =\n")
   (define e (chord-pulses/e 16 3))
   (for ([i (in-naturals)]
-        [pd (to-stream e)])
+        [pd (in-enum e)])
     (printf "~a. ~a\n" i pd)))
 
 (module+ test
@@ -185,13 +187,16 @@
          [n (in-range k 10)])
     (define e (chord-pulses/e n k))
     (printf "(f ~a ~a) = ~a\n"
-            n k (size e))))
+            n k (enum-count e))))
 
 (define tones/e
-  (vec/e (below/e 3) (below/e 3) (below/e 3)))
+  (vector/e (below/e 3) (below/e 3) (below/e 3)))
 
 (define (note/e beat-unit len)
-  (cons/e (const/e (* len beat-unit)) tones/e))
+  (cons/e (single/e (* len beat-unit)) tones/e))
+(define note-rep/c
+  ;; xxx really this real is restricted somewhat
+  (cons/c real? (enum-contract tones/e)))
 
 (define/memo (maybe-combine/e a-ts notes)
   (match-define (time-sig _ ts) a-ts)
@@ -199,8 +204,13 @@
   (if (notes . <= . 1)
       (dont-combine/e a-ts notes)
       (cons/e
-       (map/e cdr error
+       (pam/e cdr
+              #:contract
+              (or/c (list/c note-rep/c)
+                    (list/c note-rep/c note-rep/c))
               (dep/e bool/e
+                     #:flat? #t
+                     #:f-range-finite? #t
                      (λ (combine?)
                        (if combine?
                            (list/e (note/e beat-unit 1) (note/e beat-unit 1))
@@ -210,18 +220,19 @@
   (match-define (time-sig _ ts) a-ts)
   (match-define (cons beats-per-bar beat-unit) ts)
   (if (zero? notes)
-      (const/e '())
+      (single/e '())
       (cons/e (list/e (note/e beat-unit 1))
               (maybe-combine/e a-ts (sub1 notes)))))
 
 (define/memo (rhythm/e a-ts notes)
-  (map/e append* error (maybe-combine/e a-ts notes)))
+  (pam/e append* #:contract (listof note-rep/c)
+         (maybe-combine/e a-ts notes)))
 
 (module+ test
   (printf "r 4:4 4 =\n")
   (define re (rhythm/e time-sig/ts:4:4 4))
   (for ([i (in-range 100)]
-        [r (to-stream re)])
+        [r (in-enum re)])
     (printf "~a. ~a\n" i r)))
 
 (define (split-into-measures a-ts ap ns)
@@ -359,6 +370,8 @@
      pulses
      (length cp-s)))
   (dep/e
+   #:flat? #t
+   #:f-range-finite? #t
    cp/e
    (λ (cps)
      (traverse/e
@@ -366,17 +379,26 @@
         (rhythm/e ts (* cp (accent-pattern-notes-per-pulse ap))))
       cps))))
 
+(define (traverse/e f l)
+  (apply list/e (map f l)))
+
 (define bithoven/e
   (delay
     (time
-     (vec/e
+     (vector/e
       (dep/e
+       #:flat? #t
+       #:f-range-finite? #t
        time-sig/e
        (λ (ts)
          (dep/e
+          #:flat? #t
+          #:f-range-finite? #t
           (accent-pattern/e ts)
           (λ (ap)
             (dep/e
+             #:flat? #t
+             #:f-range-finite? #t
              (cons/e form/e chord-progression/e)
              (λ (f*cp)
                (match-define (cons f cp) f*cp)

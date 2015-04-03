@@ -1,6 +1,7 @@
 #lang racket/base
 (require racket/match
          racket/list
+         racket/contract
          racket/fixnum
          racket/flonum
          racket/math
@@ -33,17 +34,17 @@
       (list* note (force-lazy-scale/tones scale rest? tones) more))))
 
 (define tone-names/e
-  (from-list/e tone-names))
+  (apply fin/e tone-names))
 
-(define scales/e (from-list/e scales))
+(define scales/e (apply fin/e scales))
 (define tempo/e (range/e 40 500))
 
 (define rest-n/e
   (fin/e #f 4 5 6 7 8 9 10 11 12 13 14 15 16))
 
-(define pulse/e (from-list/e is:pulses))
-(define triangle/e (from-list/e is:triangles))
-(define drums/e (from-list/e is:drums))
+(define pulse/e (apply fin/e is:pulses))
+(define triangle/e (apply fin/e is:triangles))
+(define drums/e (apply fin/e is:drums))
 
 (define mhb/e
   (permutations-of-n/e 3))
@@ -53,14 +54,17 @@
    [(eq? ts ts:4:4)
     (match ap
       ['(#t #f #f #f)
-       (from-list/e
-        beats:4/4-one-accent)]
+       (apply fin/e
+              beats:4/4-one-accent)]
       [_
-       (from-list/e
-        beats:4/4)])]
+       (apply fin/e
+              beats:4/4)])
+    ;; xxx this is more interesting, but "wrong"
+    (apply fin/e
+           beats:4/4)]
    [(eq? ts ts:3:4)
-    (from-list/e
-     beats:3/4)]))
+    (apply fin/e
+           beats:3/4)]))
 
 (struct style
   (name tone-names/e scales/e tempo/e pulse1/e pulse2/e triangle/e drums/e mhb/e))
@@ -74,9 +78,9 @@
   [style:classic
    "Classic"
    tone-names/e (fin/e scale-diatonic-major) (range/e 160 300)
-   (from-list/e is:pulses-classic)
-   (from-list/e is:pulses-classic) 
-   (from-list/e (list i:triangle:basic i:triangle:plucky)) 
+   (apply fin/e is:pulses-classic)
+   (apply fin/e is:pulses-classic)
+   (fin/e i:triangle:basic i:triangle:plucky)
    (fin/e i:drums:basic)
    (fin/e (list 0 1 2))]
   [style:happy
@@ -103,26 +107,29 @@
          #:mhb/e [mhb/e (style-mhb/e style)]
          c)
   (match-define (vector ts ap pattern parts) c)
-  (vec/e tone-names/e scales/e tempo/e
-         pulse1/e pulse2/e triangle/e drums/e
-         mhb/e
-         ;; xxx these should be dependent on the instruments and how
-         ;; they will be used, because the pulse can't go very low and
-         ;; the triangle can't go very high
-         (fin/e 2 3) (fin/e 1 2) (fin/e 1 2)
-         (hash-traverse/e
-          (λ (_) (drum-measure/e ts ap))
-          parts)
-         (hash-traverse/e
-          (λ (ms)
-            (dep/e rest-n/e
-                   (λ (rest-n)
-                     (if rest-n
-                         (many/e
-                          (below/e rest-n)
-                          (add1 (ceiling (/ (length (append* ms)) rest-n))))
-                         (const/e '())))))
-          parts)))
+  (vector/e tone-names/e scales/e tempo/e
+            pulse1/e pulse2/e triangle/e drums/e
+            mhb/e
+            ;; xxx these should be dependent on the instruments and how
+            ;; they will be used, because the pulse can't go very low and
+            ;; the triangle can't go very high
+            (fin/e 2 3) (fin/e 1 2) (fin/e 1 2)
+            (hash-traverse/e
+             #:get-contract (λ (x) (listof (cons/c real? exact-nonnegative-integer?)))
+             (λ (_) (drum-measure/e ts ap))
+             parts)
+            (hash-traverse/e
+             #:get-contract (λ (x) (listof exact-nonnegative-integer?))
+             (λ (ms)
+               (dep/e rest-n/e
+                      #:f-range-finite? #t
+                      (λ (rest-n)
+                        (if rest-n
+                            (listof-n/e
+                             (below/e rest-n)
+                             (add1 (ceiling (/ (length (append* ms)) rest-n))))
+                            (single/e '())))))
+             parts)))
 
 (define (nestration+idx c #:n/e [n/e (nestration/e c)])
   (define n (random-index/printing n/e))

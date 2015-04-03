@@ -4,7 +4,7 @@
 
 (define (random-index/printing e)
   (define n (random-index e))
-  (define k (size e))
+  (define k (if (infinite-enum? e) +inf.0 (enum-count e)))
   (local-require racket/format)
   (define ks (~a k))
   (define ns (~a #:min-width (string-length ks) #:align 'right n))
