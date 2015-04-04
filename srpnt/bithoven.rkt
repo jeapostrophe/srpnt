@@ -370,6 +370,7 @@
      pulses
      (length cp-s)))
   (dep/e
+   #:one-way? #t
    #:flat? #t
    #:f-range-finite? #t
    cp/e
