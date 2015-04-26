@@ -225,8 +225,7 @@
               (maybe-combine/e a-ts (sub1 notes)))))
 
 (define/memo (rhythm/e a-ts notes)
-  (pam/e append* #:contract (listof note-rep/c)
-         (maybe-combine/e a-ts notes)))
+  (maybe-combine/e a-ts notes))
 
 (module+ test
   (printf "r 4:4 4 =\n")
@@ -339,7 +338,7 @@
           (for/list ([chord (in-list cp-s)]
                      [rhythm (in-list chord-rhythm)])
             (define tones (chord-triad (mode scale chord)))
-            (for/list ([r-info (in-list rhythm)])
+            (for/list ([r-info (in-list (append* rhythm))])
               (match-define (cons r (vector melody-idx harmony-idx bass-idx))
                             r-info)
               (define melody (list-ref tones melody-idx))
