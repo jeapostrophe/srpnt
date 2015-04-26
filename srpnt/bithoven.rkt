@@ -161,19 +161,21 @@
            "Illegal arguments: ~a and ~a"
            n k))
   (cond
-   [(= 1 n)
-    (single/e (list k))]
-   [else
-    (dep/e (map/e add1 sub1 
-                  ;; xxx really this number is restricted in range
-                  #:contract number?
-                  (below/e (+ 1 (- k n))))
-           #:f-range-finite? #t
-           #:flat? #t
-           (λ (this)
-             (list-of-length-n-summing-to-k-with-no-zeros/e
-              (- n 1)
-              (- k this))))]))
+    [(= 1 n)
+     (single/e (list k))]
+    [else
+     (dep/e
+      #:one-way? #f
+      (map/e add1 sub1
+             ;; xxx really this number is restricted in range
+             #:contract number?
+             (below/e (+ 1 (- k n))))
+      #:f-range-finite? #t
+      #:flat? #t
+      (λ (this)
+        (list-of-length-n-summing-to-k-with-no-zeros/e
+         (- n 1)
+         (- k this))))]))
 
 (module+ test
   (printf "16 x 3 =\n")
@@ -204,17 +206,15 @@
   (if (notes . <= . 1)
       (dont-combine/e a-ts notes)
       (cons/e
-       (pam/e cdr
-              #:contract
-              (or/c (list/c note-rep/c)
-                    (list/c note-rep/c note-rep/c))
-              (dep/e bool/e
-                     #:flat? #t
-                     #:f-range-finite? #t
-                     (λ (combine?)
-                       (if combine?
-                           (list/e (note/e beat-unit 1) (note/e beat-unit 1))
-                           (list/e (note/e beat-unit 2))))))
+       (dep/e
+        #:one-way? #f
+        bool/e
+        #:flat? #t
+        #:f-range-finite? #t
+        (λ (combine?)
+          (if combine?
+              (list/e (note/e beat-unit 1) (note/e beat-unit 1))
+              (list/e (note/e beat-unit 2)))))
        (maybe-combine/e a-ts (- notes 2)))))
 (define/memo (dont-combine/e a-ts notes)
   (match-define (time-sig _ ts) a-ts)
@@ -242,22 +242,22 @@
   (define (consume-notes ns)
     (let loop ([total 0.0] [so-far empty] [ns ns])
       (cond
-       [(> total goal)
-        (error 'split-into-measures "Notes went over a measure!")]
-       [(= total goal)
-        (values (reverse so-far) ns)]
-       [else
-        (match-define (vector note args) (first ns))
-        (define new-total (fl+ note total))
-        (define (list-ref* l i)
-          (if (<= (length l) i)
-              #f
-              (list-ref l i)))
-        (define accented?
-          (list-ref* accents (fl->fx (flceiling (fl/ total beat-unit)))))
-        (define new-note (list* note args accented?))
-        (define new-so-far (cons new-note so-far))
-        (loop new-total new-so-far (rest ns))])))
+        [(> total goal)
+         (error 'split-into-measures "Notes went over a measure!")]
+        [(= total goal)
+         (values (reverse so-far) ns)]
+        [else
+         (match-define (vector note args) (first ns))
+         (define new-total (fl+ note total))
+         (define (list-ref* l i)
+           (if (<= (length l) i)
+               #f
+               (list-ref l i)))
+         (define accented?
+           (list-ref* accents (fl->fx (flceiling (fl/ total beat-unit)))))
+         (define new-note (list* note args accented?))
+         (define new-so-far (cons new-note so-far))
+         (loop new-total new-so-far (rest ns))])))
   (define (consume-measures ns)
     (match ns
       ['() '()]
@@ -319,8 +319,8 @@
 
 (define (bithoven-input->composition bi)
   (match-define
-   (vector (cons ts (cons ap (cons (cons f cp) cps*crs-s))) bns)
-   bi)
+    (vector (cons ts (cons ap (cons (cons f cp) cps*crs-s))) bns)
+    bi)
   (define scale lazy-scale)
   (define cp-s (progression-seq cp))
   (define btones
@@ -338,9 +338,9 @@
           (for/list ([chord (in-list cp-s)]
                      [rhythm (in-list chord-rhythm)])
             (define tones (chord-triad (mode scale chord)))
-            (for/list ([r-info (in-list (append* rhythm))])
+            (for/list ([r-info (in-list (filter cons? (append* rhythm)))])
               (match-define (cons r (vector melody-idx harmony-idx bass-idx))
-                            r-info)
+                r-info)
               (define melody (list-ref tones melody-idx))
               (define harmony (list-ref tones harmony-idx))
               (define allowed-bass-notes
@@ -369,7 +369,7 @@
      pulses
      (length cp-s)))
   (dep/e
-   #:one-way? #t
+   #:one-way? #f
    #:flat? #t
    #:f-range-finite? #t
    cp/e
@@ -387,16 +387,19 @@
     (time
      (vector/e
       (dep/e
+       #:one-way? #f
        #:flat? #t
        #:f-range-finite? #t
        time-sig/e
        (λ (ts)
          (dep/e
+          #:one-way? #f
           #:flat? #t
           #:f-range-finite? #t
           (accent-pattern/e ts)
           (λ (ap)
             (dep/e
+             #:one-way? #f
              #:flat? #t
              #:f-range-finite? #t
              (cons/e form/e chord-progression/e)
@@ -415,9 +418,9 @@
                   (let ()
                     (define pat-length (length (form-pattern f)))
                     (cond
-                     [(< pat-length 3) 4]
-                     [(< pat-length 5) 2]
-                     [else 1]))))
+                      [(< pat-length 3) 4]
+                      [(< pat-length 5) 2]
+                      [else 1]))))
                (define/memo (this-kind-of-part/e len)
                  (part/e ts ap cp measures-per-part len))
                (traverse/e
