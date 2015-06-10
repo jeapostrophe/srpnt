@@ -9,7 +9,6 @@
 (define sample-rate 44100)
 (define sample-rate.0 (fx->fl sample-rate))
 (define samples-per-buffer (fxquotient sample-rate 60))
-(define frames-per-buffer (fx* channels samples-per-buffer))
 
 (define (make-buffer channels)
   (make-bytes (fx* channels samples-per-buffer)))
@@ -29,6 +28,5 @@
  (contract-out
   [channels fixnum?]
   [samples-per-buffer fixnum?]
-  [frames-per-buffer fixnum?]
   [sample-rate.0 flonum?]
   [make-buffer (-> byte? bytes?)]))

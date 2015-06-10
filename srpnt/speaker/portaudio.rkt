@@ -2,7 +2,6 @@
 (require portaudio/portaudio
          portaudio/devices
          racket/match
-         racket/fixnum
          racket/flonum
          racket/contract/base
          "h.rkt")
