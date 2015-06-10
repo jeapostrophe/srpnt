@@ -4,8 +4,21 @@
          racket/fixnum
          racket/flonum
          racket/runtime-path
-         srpnt/music
+         srpnt/tones
+         srpnt/player
          srpnt/music-theory)
+
+(define (cmd:frame* p1 p2 t n ld rd)
+  (cmd:frame (or p1 off-wave:pulse)
+             (or p2 off-wave:pulse)
+             (or t off-wave:triangle)
+             (or n off-wave:noise)
+             (or ld off-wave:dmc)
+             (or rd off-wave:dmc)))
+
+(define (cmd:hold* frames c)
+  (for/list ([f (in-range frames)])
+    c))
 
 (define (part->semicmds me ts p)
   (match-define (cons instru measures) p)

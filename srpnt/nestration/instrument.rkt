@@ -3,7 +3,8 @@
          racket/fixnum
          racket/flonum
          racket/math
-         srpnt/music)
+         srpnt/tones
+         srpnt/player)
 (module+ test
   (require rackunit))
 

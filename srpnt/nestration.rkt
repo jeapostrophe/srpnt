@@ -8,7 +8,7 @@
          data/enumerate
          data/enumerate/lib
          srpnt/enum-util
-         srpnt/music
+         srpnt/tones
          srpnt/music-theory
          srpnt/tracker
          srpnt/nestration/instrument

@@ -1,53 +1,17 @@
 #lang racket/base
 (require racket/match
          racket/fixnum
-         racket/list
-         racket/flonum
          racket/runtime-path
-         srpnt/player
-         srpnt/apu
-         srpnt/speaker)
+         srpnt/apu)
 
-;; xxx these should be moved or removed or something
-(define (cmd:frame* p1 p2 t n ld rd)
-  (cmd:frame (or p1 off-wave:pulse)
-             (or p2 off-wave:pulse)
-             (or t off-wave:triangle)
-             (or n off-wave:noise)
-             (or ld off-wave:dmc)
-             (or rd off-wave:dmc)))
-(define (cmd:hold* frames c)
-  (for/list ([f (in-range frames)])
-    c))
-(define (cmd:hold*f frames cf)
-  (for/list ([f (in-range frames)])
-    (cf f)))
-(define (cmd-length* c)
-  (match c
-    ['()
-     0]
-    [(cons a d)
-     (+ (cmd-length* a) (cmd-length* d))]
-    [_
-     1]))
-;; xxx this is ugly, it would be better to change the drum code to
-;; take in a variable frame count
-(define (cmd:ensure f c)
-  (define clen (cmd-length* c))
-  (define r
-    (if (fx<= clen f)
-        (cons c (cmd:hold* (fxmax 0 (fx- f clen)) #f))
-        (take (flatten c) (max 0 f))))
-  r)
-
-(define-runtime-path keys-path "keys.txt")
+(define-runtime-path tones-path "tones.txt")
 (define-values (PULSE TRIANGLE)
   (let ()
     (local-require racket/file
                    racket/string)
     (define PULSE (make-hasheq))
     (define TRIANGLE (make-hasheq))
-    (for ([note-line (in-list (file->lines keys-path))]
+    (for ([note-line (in-list (file->lines tones-path))]
           [row (in-naturals)])
       (match-define (cons note-s freq+offs) (string-split note-line))
       (define note-l
@@ -88,17 +52,5 @@
             (λ () (error 'triangle-tone->period "The triangle can't play ~v\n"
                          tone))))
 
-(provide
- pulse-freq->period
- triangle-freq->period
- samples-per-buffer
- read-sample/gzip
- read-sample/path
- read-sample/port
- (all-from-out srpnt/player)
- cmd:frame*
- cmd:hold*
- cmd:hold*f
- cmd:ensure
- pulse-tone->period
- triangle-tone->period)
+(provide pulse-tone->period
+         triangle-tone->period)
