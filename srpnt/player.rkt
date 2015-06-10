@@ -1,30 +1,11 @@
 #lang racket/base
-(require srpnt/bytes-player
+(require srpnt/speaker
          srpnt/apu
          racket/match
          racket/flonum
          racket/fixnum
          racket/contract/base
          racket/performance-hint)
-
-;; Speaker API
-
-(struct speaker (output close))
-(begin-encourage-inline
-  (define (speaker-output! sp v)
-    ((speaker-output sp) v))
-  (define (speaker-close! sp)
-    ((speaker-close sp))))
-
-;; Real Speaker
-
-(define (speaker:bytes-player)
-  (define bp (make-bytes-player))
-  (speaker
-   (λ (out-bs)
-     (bytes-play! bp out-bs))
-   (λ ()
-     (close-bytes-player! bp))))
 
 ;; Mixer API
 
@@ -150,7 +131,7 @@
   (play-cmd init-c))
 
 (define (playing-mixer)
-  (mixer:standard (speaker:bytes-player)))
+  (mixer:standard (speaker:real)))
 
 (define (play-one! init-c)
   (define m (playing-mixer))
