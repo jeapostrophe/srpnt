@@ -5,7 +5,7 @@
          racket/class
          racket/fixnum
          racket/performance-hint
-         srpnt/bytes-player)
+         srpnt/speaker)
 
 (define OSC-W samples-per-buffer)
 (define OSC-Hshort (fx* 2 16))
@@ -35,16 +35,16 @@
     (define start-y 0)
 
     (begin-encourage-inline
-     (define (draw-osc! label off start-x)
-       (send dc draw-text label OSC-MARGIN start-y)
-       (for/fold ([last-x -1] [last-y 0])
-                 ([i (in-range samples-per-buffer)])
-         (define this-x i)
-         (define this-y (fx- (bytes-ref bs (fx+ off (fx* i channels))) start-x))
-         (send dc draw-line
-               (fx+ OSC-MARGIN last-x) (fx- start-y last-y)
-               (fx+ OSC-MARGIN this-x) (fx- start-y this-y))
-         (values this-x this-y))))
+      (define (draw-osc! label off start-x)
+        (send dc draw-text label OSC-MARGIN start-y)
+        (for/fold ([last-x -1] [last-y 0])
+                  ([i (in-range samples-per-buffer)])
+          (define this-x i)
+          (define this-y (fx- (bytes-ref bs (fx+ off (fx* i channels))) start-x))
+          (send dc draw-line
+                (fx+ OSC-MARGIN last-x) (fx- start-y last-y)
+                (fx+ OSC-MARGIN this-x) (fx- start-y this-y))
+          (values this-x this-y))))
 
     (set! start-y (fx+ start-y (fx+ OSC-MARGIN OSC-Hshort)))
     (draw-osc! "Pulse-1" 0 0)
@@ -80,11 +80,11 @@
          (define new-bs (file->bytes p))
          (define new-bs-len (bytes-length new-bs))
          (cond
-          [(= new-bs-len expected-length)
-           (set! bs new-bs)
-           (send c refresh-now)]
-          [else
-           (eprintf "UNDERFLOW: ~a\n" new-bs-len)]))
+           [(= new-bs-len expected-length)
+            (set! bs new-bs)
+            (send c refresh-now)]
+           [else
+            (eprintf "UNDERFLOW: ~a\n" new-bs-len)]))
        (loop))))
 
   (send f show #t))

@@ -6,7 +6,7 @@
          racket/runtime-path
          srpnt/player
          srpnt/apu
-         srpnt/bytes-player)
+         srpnt/speaker)
 
 ;; xxx these should be moved or removed or something
 (define (cmd:frame* p1 p2 t n ld rd)
