@@ -10,4 +10,9 @@ ffmpeg -i INPUT -map_channel 0.0.1 -f u8 OUTPUT.raw
 OR
 ffmpeg -i INPUT -ac 1 -f u8 OUTPUT.raw
 
+--
+
+If you want to turn srpnt's raw output back into something you can
+plan with a normal player, ffmpeg can do that too:
+
 FILE=song ; ffmpeg -f u8 -i ${FILE}.l.raw -f u8 -i ${FILE}.r.raw -filter_complex "[0:a][1:a]amerge[aout]" -map "[aout]" ${FILE}.wav

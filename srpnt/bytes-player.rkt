@@ -1,6 +1,7 @@
 #lang racket/base
 (require portaudio/portaudio
          portaudio/devices
+         racket/match
          racket/fixnum
          racket/flonum
          racket/contract/base)
@@ -14,6 +15,9 @@
 
 (define (make-buffer channels)
   (make-bytes (fx* channels samples-per-buffer)))
+
+(struct bp (stream buf))
+
 (define (make-bytes-player)
   (pa-maybe-initialize)
   (define device-number (find-output-device reasonable-latency))
@@ -26,15 +30,19 @@
   (define stream
     (pa-open-stream
      #f output-stream-parameters
-     sample-rate.0 samples-per-buffer null #f #f))
+     sample-rate.0 samples-per-buffer
+     null #f #f))
+  (define buf (make-buffer channels))
   (pa-start-stream stream)
-  stream)
-(define (bytes-play! bp bs)
+  (bp stream buf))
+(define (bytes-play! a-bp bs)
+  (match-define (bp stream buf) a-bp)
   (with-handlers ([exn:fail?
                    (λ (x) (eprintf "~a\n" (exn-message x)))])
-    (pa-write-stream bp bs samples-per-buffer)))
-(define (close-bytes-player! bp)
-  (pa-close-stream bp))
+    (pa-write-stream stream bs samples-per-buffer)))
+(define (close-bytes-player! a-bp)
+  (match-define (bp stream buf) a-bp)
+  (pa-close-stream stream))
 
 (provide
  (contract-out
@@ -43,9 +51,9 @@
   [frames-per-buffer fixnum?]
   [sample-rate.0 flonum?]
   [make-buffer (-> byte? bytes?)]
-  [make-bytes-player (-> stream?)]
-  [bytes-play! (-> stream? bytes? void?)]
-  [close-bytes-player! (-> stream? void?)]))
+  [make-bytes-player (-> bp?)]
+  [bytes-play! (-> bp? bytes? void?)]
+  [close-bytes-player! (-> bp? void?)]))
 
 (module+ test
   (require racket/math

@@ -43,17 +43,23 @@
   (basic-audio i:pulse:off i:pulse:off i:triangle:off i:drums:basic beat))
 
 (define audio
-  (or (test-drum-beat beat:straight-rock)
-      (test-pulse (i:pulse:vibrato 5.0 2))
-      (test-pulse (i:pulse:tremolo 120.0 2))
-      
-      (test-pulse (i:pulse:plucky 2))
-      (test-pulse (i:pulse:basic 2))
-      
+  (or (test-drum-beat beat:funk-beat)
+
       (test-drums 
        (i:drums (vector i:drum:hihat
                         i:drum:bass
                         i:drum:snare)))
+
+      
+      (test-triangle i:triangle:basic)
+      (test-pulse (i:pulse:natural 2))
+      (test-pulse (i:pulse:plucky 2))
+      (test-pulse (i:pulse:basic 2))
+      (test-pulse (i:pulse:vibrato 5.0 2))
+      (test-pulse (i:pulse:tremolo 120.0 2))
+      
+      
+      
       (test-drums i:drums:basic)      
         
       (test-pulse (i:pulse:natural 2))
