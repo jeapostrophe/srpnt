@@ -6,7 +6,6 @@
          racket/match
          racket/promise
          srpnt/music-theory
-         srpnt/enum-util
          math/base
          data/enumerate
          data/enumerate/lib)
@@ -431,7 +430,7 @@
 (define (bithoven+idx)
   (define e (force bithoven/e))
   (printf "Bithoven: ")
-  (define n (random-index/printing e))
+  (define n (random-index e))
   (define bi (from-nat e n))
   (printf "bi is ~v\n" bi)
   (define c (bithoven-input->composition bi))

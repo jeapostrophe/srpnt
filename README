@@ -23,7 +23,6 @@ TODO:
 
 * clean up files
      452    1641   14249 ./srpnt/bithoven.rkt
-      14      45     401 ./srpnt/enum-util.rkt
       29      59     656 ./srpnt/examples/song.rkt
       96     334    3191 ./srpnt/gui.rkt
       74     207    2727 ./srpnt/nestration/dev.rkt

@@ -7,7 +7,6 @@
          racket/math
          data/enumerate
          data/enumerate/lib
-         srpnt/enum-util
          srpnt/tones
          srpnt/music-theory
          srpnt/tracker
@@ -132,7 +131,7 @@
              parts)))
 
 (define (nestration+idx c #:n/e [n/e (nestration/e c)])
-  (define n (random-index/printing n/e))
+  (define n (random-index n/e))
   (values n (from-nat n/e n)))
 
 (define (nestration c #:n/e [n/e (nestration/e c)])
