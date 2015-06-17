@@ -4,7 +4,8 @@
          racket/flonum
          racket/math
          srpnt/tones
-         srpnt/player)
+         srpnt/player
+         srpnt/synth)
 (module+ test
   (require rackunit))
 
