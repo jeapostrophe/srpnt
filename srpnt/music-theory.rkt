@@ -8,7 +8,7 @@
   (require rackunit))
 
 (define note-factors
-  (vector 1.0 2.0 4.0 8.0))
+  (vector 1.0 2.0 4.0 8.0 16.0))
 (define notes
   (apply vector
          (append*
@@ -43,8 +43,7 @@
   (check-equal? (frames-in-note (cons 0.25 3600) 0.125) 0))
 
 (define time-sig/c
-  (cons/c exact-nonnegative-integer?
-          note/c))
+  (cons/c exact-nonnegative-integer? note/c))
 (define ts:2:4 (cons 2 0.25))
 (define ts:3:4 (cons 3 0.25))
 (define ts:4:4 (cons 4 0.25))
@@ -61,56 +60,14 @@
 (module+ test
   (check-equal? (frames-in-bar (cons 0.25 60) (cons 4 0.25)) 240))
 
-(define remainder->rhythms
-  (make-hash))
-(define (notes-divisions bar)
-  (hash-ref! remainder->rhythms
-             bar
-             (λ ()
-               (if (fl<= bar 0.0)
-                   (list empty)
-                   (append*
-                    (for/list ([n (in-vector notes)])
-                      (if (fl<= n bar)
-                          (map (λ (l) (cons n l))
-                               (notes-divisions (fl- bar n)))
-                          empty)))))))
-
-(define (ordered-bar-divisions ts)
-  (notes-divisions (notes-in-bar ts)))
-(module+ test
-  (length (ordered-bar-divisions ts:4:4)))
-
-(define (all-notes-divisions nds)
-  (append*
-   (map (λ (td)
-          (remove-duplicates (permutations td)))
-        nds)))
-
-(define (bar-divisions ts)
-  (all-notes-divisions (ordered-bar-divisions ts)))
-(module+ test
-  (length (bar-divisions ts:4:4)))
-
-(require (only-in math/number-theory divisors))
-(define (beat-accents ts)
-  (match-define (cons beats-per-bar beat-unit) ts)
-  (append*
-   (for/list ([d (in-list (divisors beats-per-bar))])
-     (for/list ([which (in-range d)])
-       (for/list ([b (in-range beats-per-bar)])
-         (fx= which (fxmodulo b d)))))))
-(module+ test
-  (beat-accents ts:2:4)
-  (beat-accents ts:3:4)
-  (beat-accents ts:4:4))
-
 (define tone-names
   '(C C# D D# E F F# G G# A A# B))
 (define tone->idx
   (for/hasheq ([t (in-list tone-names)]
                [i (in-naturals)])
     (values t i)))
+(define tone-name/c
+  (apply one-of/c tone-names))
 
 (define (list-ref/modify modify base new-i)
   (define len (length base))
@@ -128,10 +85,16 @@
     [(? symbol? tone)
      (cons tone doctave)]
     [(cons tone doctave1)
-     (cons tone (+ doctave1 doctave))]))
+     (cons tone (fx+ doctave1 doctave))]))
+
+(define tone+octave/c
+  (cons/c (or/c fixnum? tone-name/c) fixnum?))
 
 (define (list-rotate base start)
   (list-rotate/modify modify/octave base start))
+
+(define scale-tones/c (listof tone+octave/c))
+(define scale/c (-> tone-name/c scale-tones/c))
 
 (define (scale-chromatic/idx start-idx)
   (list-rotate tone-names start-idx))
@@ -161,6 +124,7 @@
     (define (scale-name start-tone)
       (define base (scale-chromatic start-tone))
       (list-read base offsets))
+    (provide (contract-out [scale-name scale/c]))
     (set! scales (snoc scales scale-name))))
 
 (define lazy-scale (map (λ (x) (cons x 0)) '(0 1 2 3 4 5 6)))
@@ -186,10 +150,6 @@
 (define-scale scale-arabian '(2 2 1 1 2 2 2))
 (define-scale scale-scottish '(2 3 2 2 3))
 ;; xxx add exotic scales? http://www.lotusmusic.com/lm_exoticscales.html
-
-(module+ test
-  (for ([s (in-list scales)])
-    (printf "~a ~a: ~a\n" s 'C (s 'C))))
 
 (define (mode scale-tones start)
   (list-rotate scale-tones start))
@@ -249,34 +209,29 @@
   (for/list ([start (in-range (length chord-tones))])
     (chord-inversion chord-tones start)))
 
-(define (octave-delta tones delta)
-  (for/list ([t (in-list tones)])
-    (match-define (cons tn do) t)
-    (cons tn (+ delta do))))
-
-(module+ test
-  (let ()
-    (define (random-list-ref l)
-      (list-ref l (random (length l))))
-    (define start (random-list-ref tone-names))
-    (define scale (random-list-ref scales))
-    (define scale-tones (scale start))
-    (printf "~a ~a: ~a\n" start scale scale-tones)
-    (printf "Triads:\n")
-    (for ([t (in-list (all-chords chord-triad scale-tones))])
-      (printf "\t~a\n" t))
-    (printf "Sevenths:\n")
-    (for ([t (in-list (all-chords chord-seventh scale-tones))])
-      (printf "\t~a\n" t))
-    (printf "Sixths:\n")
-    (for ([t (in-list (all-chords chord-sixth scale-tones))])
-      (printf "\t~a\n" t))
-    (printf "Triad Inversions:\n")
-    (for ([t (in-list (chord-inversions (chord-triad scale-tones)))])
-      (printf "\t~a\n" t))
-    (printf "Seventh Inversions:\n")
-    (for ([t (in-list (chord-inversions (chord-seventh scale-tones)))])
-      (printf "\t~a\n" t))))
-
-;; xxx contracts
-(provide (all-defined-out))
+(provide
+ (contract-out
+  [metronome/c contract?]
+  [note/c contract?]
+  [frames-in-note.0 (-> metronome/c note/c flonum?)]
+  [time-sig/c contract?]
+  [ts:4:4 time-sig/c]
+  [ts:3:4 time-sig/c]
+  [notes-in-bar (-> time-sig/c flonum?)]
+  [frames-in-bar (-> metronome/c time-sig/c fixnum?)]
+  [list-ref/modify
+   (-> (-> any/c fixnum? any/c) list? fixnum?
+       any/c)]
+  [tone-names (listof symbol?)]
+  [tone-name/c contract?]
+  [tone+octave/c contract?]
+  [modify/octave
+   (-> (or/c tone-name/c tone+octave/c)
+       fixnum? tone+octave/c)]
+  [scale-tones/c contract?]
+  [scale/c contract?]
+  [scales (listof scale/c)]
+  [scale-chromatic scale/c]
+  [lazy-scale scale-tones/c]
+  [chord-triad (-> scale-tones/c scale-tones/c)]
+  [mode (-> scale-tones/c fixnum? scale-tones/c)]))
