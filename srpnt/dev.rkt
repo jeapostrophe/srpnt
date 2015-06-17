@@ -1,7 +1,17 @@
 #lang racket/base
-(require racket/list
+(require racket/runtime-path
+         racket/match
+         racket/list
          srpnt/music-theory
-         srpnt/nestration/instruments)
+         srpnt/nestration/instruments
+         srpnt/music
+         srpnt/bithoven
+         srpnt/nestration)
+
+(define (use-bithoven)
+  (define comp (bithoven))
+  (define strat (nestration comp))
+  (cons comp strat))
 
 (define (basic-audio pulse1 pulse2 triangle drums drum-measure)
   (define the-scale scale-diatonic-major)
@@ -42,8 +52,15 @@
 (define (test-drum-beat beat)
   (basic-audio i:pulse:off i:pulse:off i:triangle:off i:drums:basic beat))
 
+(define-runtime-path clip-path "clip.raw.gz")
+(define sample-bs (read-sample/gzip 0 4 clip-path))
+
+;; xxx test samples
+
 (define audio
-  (or (test-drum-beat beat:funk-beat)
+  (or (use-bithoven)
+
+      (test-drum-beat beat:funk-beat)
 
       (test-drums 
        (i:drums (vector i:drum:hihat
