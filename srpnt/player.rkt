@@ -99,7 +99,6 @@
 
 ;; A frame corresponds to 1/60th of a second.
 (struct cmd:frame (p1 p2 t n ld rd))
-(struct cmd:repeat (c))
 
 (provide (struct-out wave:pulse)
          off-wave:pulse
@@ -109,26 +108,19 @@
          off-wave:noise
          (struct-out wave:dmc)
          off-wave:dmc
-         (struct-out cmd:frame)
-         (struct-out cmd:repeat))
+         (struct-out cmd:frame))
 
 (define (play-to! m init-c)
-  (define (play-cmd init-c)
-    (define s (make-synth))
-    (let loop ([c init-c])
-      (match c
-        [(or #f '() (? void?))
-         (void)]
-        [(cons a d)
-         (loop a)
-         (loop d)]
-        [(cmd:repeat c)
-         (let repeat ()
-           (loop c)
-           (repeat))]
-        [(cmd:frame p1 p2 t n ld rd)
-         (synth-step! m s p1 p2 t n ld rd)])))
-  (play-cmd init-c))
+  (define s (make-synth))
+  (let loop ([c init-c])
+    (match c
+      [(or #f '() (? void?))
+       (void)]
+      [(cons a d)
+       (loop a)
+       (loop d)]
+      [(cmd:frame p1 p2 t n ld rd)
+       (synth-step! m s p1 p2 t n ld rd)])))
 
 (define (playing-mixer)
   (mixer:standard (speaker:real)))
@@ -139,41 +131,3 @@
   (mixer-close! m))
 
 (provide play-one!)
-
-(define (dynamic-play-to! m song-p)
-  (define ns (make-base-namespace))
-  (namespace-attach-module (current-namespace) 'srpnt/player ns)
-  (define init-c
-    (parameterize ([current-namespace ns])
-      (dynamic-require `(file ,song-p) 'main-track)))
-  (play-to! m init-c))
-
-(define (play! song-p)
-  (printf "starting...\n")
-  (define m
-    (playing-mixer))
-  
-  (let loop ()
-    (printf "Loading ~a\n" song-p)
-    (define player-t
-      (thread
-       (λ ()
-         (dynamic-play-to! m song-p))))
-    (define song-p-evt
-      (filesystem-change-evt song-p))
-    (sync song-p-evt player-t)
-    (filesystem-change-evt-cancel song-p-evt)
-    (kill-thread player-t)
-    (loop))
-
-  (mixer-close! m)
-  (printf "...stop.\n"))
-
-(module+ main
-  (require racket/cmdline)
-
-  (command-line
-   #:program "player"
-   #:args (song-file)
-   (play!
-    song-file)))
