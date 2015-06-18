@@ -83,8 +83,6 @@
 (define (combine-parts part-semicmds)
   (apply-mapish combine-semicmds part-semicmds))
 
-;; xxx make this more like a tracker that takes independent tracks and
-;; combines them with their own note lengths
 (define (song->commands #:me me #:ts ts parts)
   (combine-parts (map (λ (p) (part->semicmds me ts p)) parts)))
 
@@ -132,14 +130,14 @@
                  (integer-in 0 2))))
        #:instruments
        (vector/c
-        (cons/c instrument:pulse/c exact-nonnegative-integer?)
-        (cons/c instrument:pulse/c exact-nonnegative-integer?)
-        (cons/c instrument:triangle/c exact-nonnegative-integer?))
+        (cons/c instrument:pulse-or-triangle/c exact-nonnegative-integer?)
+        (cons/c instrument:pulse-or-triangle/c exact-nonnegative-integer?)
+        (cons/c instrument:pulse-or-triangle/c exact-nonnegative-integer?))
        #:measures
        (listof
-        (listof
+        (listof 
          (cons/c note/c
                  (cons/c
-                  (listof (cons/c symbol? exact-nonnegative-integer?))
+                  (listof (or/c #f (cons/c symbol? exact-nonnegative-integer?)))
                   boolean?))))
        (listof synth:frame?))]))

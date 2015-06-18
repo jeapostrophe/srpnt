@@ -2,6 +2,8 @@
 (require racket/runtime-path
          racket/match
          racket/list
+         data/enumerate
+         data/enumerate/lib
          srpnt/music-theory
          srpnt/nestration/instruments
          srpnt/synth
@@ -10,8 +12,10 @@
          srpnt/nestration)
 
 (define (use-bithoven)
-  (define-values (compi comp) (bithoven+idx))
-  (define strat (nestration comp))
+  (define b-output (from-nat bithoven/e (random-index bithoven/e)))
+  (define comp (bithoven->composition b-output))
+  (define n/e (make-nestration/e comp))
+  (define strat (from-nat n/e (random-index n/e)))
   (cons comp strat))
 
 (define (basic-audio pulse1 pulse2 triangle drums drum-measure)
@@ -59,11 +63,9 @@
 ;; xxx test samples
 
 (define audio
-  (or (test-drum-beat beat:funk-beat)
+  (or (use-bithoven)
 
-      (use-bithoven)
-
-      
+      (test-drum-beat beat:funk-beat)
 
       (test-drums 
        (i:drums (vector i:drum:hihat
@@ -95,6 +97,6 @@
 
 (module+ main
   (require srpnt/player
-           srpnt/nestration)
+           srpnt/band)
   (match-define (cons c n) audio)
-  (play-one! (nes-harmonic c n)))
+  (play-one! (compile-song c n)))

@@ -32,7 +32,7 @@
 ;; state. every frame, evaluate the composition on the frame number to
 ;; get the instruments.
 
-(define (nes-harmonic c s)
+(define (compile-song c s)
   (match-define (vector ts ap pattern parts) c)
   (match-define (vector scale-root scale-kind tempo
                         pulse1 pulse2 triangle drum
@@ -40,12 +40,7 @@
                         part->dm part->rest-randoms)
                 s)
   (define scale (scale-kind scale-root))
-
-  (let ()
-    (local-require racket/pretty)
-    (pretty-print s))
-
-  (printf "Tempo is ~v\n" tempo)
+  
   (chorded-song->commands
    #:me (cons 0.25 tempo)
    #:ts ts
@@ -106,4 +101,5 @@
       (for/list ([p (in-list pattern)])
         (hash-ref part->dms p))))))
 
-(provide nes-harmonic)
+;; xxx contract
+(provide compile-song)

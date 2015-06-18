@@ -149,7 +149,6 @@
 (define-scale scale-hirojoshi '(2 1 4 1 4))
 (define-scale scale-arabian '(2 2 1 1 2 2 2))
 (define-scale scale-scottish '(2 3 2 2 3))
-;; xxx add exotic scales? http://www.lotusmusic.com/lm_exoticscales.html
 
 (define (mode scale-tones start)
   (list-rotate scale-tones start))

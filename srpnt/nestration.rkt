@@ -61,7 +61,7 @@
    "ALL"
    tone-names/e scales/e tempo/e pulse/e pulse/e triangle/e drums/e mhb/e])
 
-(define (nestration/e
+(define (make-nestration/e
          #:style [style style:all]
          #:tone-names/e [tone-names/e (style-tone-names/e style)]
          #:scales/e [scales/e (style-scales/e style)]
@@ -94,14 +94,5 @@
                             (single/e '())))))
              parts)))
 
-(define (nestration+idx c #:n/e [n/e (nestration/e c)])
-  (define n (random-index n/e))
-  (values n (from-nat n/e n)))
-
-(define (nestration c #:n/e [n/e (nestration/e c)])
-  (define-values (a b) (nestration+idx c #:n/e n/e))
-  b)
-
-(provide nestration
-         nestration+idx
-         nestration/e)
+;; xxx contracts
+(provide make-nestration/e)

@@ -304,7 +304,7 @@
                                   (vector 0.125 'N) (vector 0.125 'N)
                                   (vector 0.125 'N) (vector 0.250 'N)))))))
 
-(define (bithoven-input->composition bi)
+(define (bithoven->composition bi)
   (match-define
     (vector (cons ts (cons ap (cons (cons f cp) cps*crs-s))) bns)
     bi)
@@ -413,11 +413,5 @@
              (form-part-lens f))))))))
    bass-notes/e))
 
-(define (bithoven+idx)
-  (define e bithoven/e)
-  (define n (random-index e))
-  (define bi (from-nat e n))
-  (define c (bithoven-input->composition bi))
-  (values n c))
-
-(provide bithoven+idx)
+(provide bithoven->composition
+         bithoven/e)

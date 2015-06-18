@@ -35,8 +35,7 @@
 ;; Then, rather than actual compute the parameter, we return whether
 ;; the process is in stage 0, 1, 2, or 3 and what percentage through
 ;; it you are. Further, we will allow the user to specify which phase
-;; will fill extra space. [XXX Perhaps I should allow any combination
-;; of expanders?]
+;; will fill extra space.
 (define (adsr expander attack decay sustain release)
   (define base (fx+ (fx+ attack decay) (fx+ sustain release)))
   (define base.0 (fx->fl base))
@@ -201,6 +200,10 @@
   (instrument/c (cons/c symbol? boolean?) wave:pulse?))
 (define instrument:triangle/c
   (instrument/c (cons/c symbol? boolean?) wave:triangle?))
+(define instrument:pulse-or-triangle/c
+  (instrument/c (cons/c symbol? boolean?)
+                (or/c wave:pulse?
+                      wave:triangle?)))
 (define instrument:drum/c
   (-> exact-nonnegative-integer? (listof wave:noise?)))
 (define instrument:drums/c
@@ -237,6 +240,8 @@
   [instrument:pulse/c
    contract?]
   [instrument:triangle/c
+   contract?]
+  [instrument:pulse-or-triangle/c
    contract?]
   [instrument:drum/c
    contract?]
