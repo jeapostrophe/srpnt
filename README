@@ -22,8 +22,8 @@ FILE=song ; ffmpeg -f u8 -i ${FILE}.l.raw -f u8 -i ${FILE}.r.raw -filter_complex
 TODO:
 
 * clean up files
-     252     799    7409 ./srpnt/nestration/instruments.rkt
      226     727    7504 ./srpnt/nestration.rkt
+     band.rkt
 * merge files
       96     334    3191 ./srpnt/gui.rkt
       27      57     531 ./srpnt/player.rkt

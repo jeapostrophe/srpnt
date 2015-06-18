@@ -115,7 +115,6 @@
 ;; 9 is crunchy
 ;; 7 and C are okay
 
-;; xxx look up better formulas?, try mode/period changes
 (define hihat-adsr
   (spec:adsr 'release
              1 (spec:constant 4)
@@ -183,9 +182,9 @@
                             (eq? bass snare)))
     (i:drums (vector hihat bass snare))))
 
-;; xxx get more from here: http://en.wikipedia.org/wiki/Drum_beat
+;; From: http://en.wikipedia.org/wiki/Drum_beat
 
-;; xxx study the awesome beats of sin and punishment 2
+;; MORE study the awesome beats of sin and punishment 2
 (define beat:heavy-metal
   (list (cons 0.125 1) (cons 0.0625 1) (cons 0.0625 1)
         (cons 0.125 2) (cons 0.0625 1) (cons 0.0625 1)
