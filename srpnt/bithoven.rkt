@@ -4,7 +4,6 @@
          racket/contract
          racket/flonum
          racket/match
-         racket/promise
          srpnt/music-theory
          math/base
          data/enumerate
@@ -29,8 +28,8 @@
 (define time-sig/e
   (fin/e time-sig/ts:4:4))
 
-;; xxx #t means "accented" and "can be the start of a chord
-;; change", but the second thing isn't correctly used
+;; FIXME #t means "accented" and "can be the start of a chord change",
+;; but the second thing isn't correctly used
 (struct accent-pattern (name pulses-per-measure accents) #:transparent)
 
 (define time-sig->accents
@@ -48,8 +47,6 @@
 (define (accent-pattern-notes-per-pulse ap)
   (match-define (accent-pattern _ ppm as) ap)
   (/ (length as) ppm))
-
-;; xxx https://en.wikipedia.org/wiki/Musical_form#Levels_of_organization
 
 ;; part-lens is in 4 measures
 (struct form (name part-lens pattern) #:transparent)
@@ -105,10 +102,8 @@
          '(A B A B C A B C A B))))
 
 (struct progression (seq) #:transparent)
-;; xxx Should look at https://en.wikipedia.org/wiki/List_of_chord_progressions
-;; From https://en.wikipedia.org/wiki/Chord_progression
 
-;; xxx i should change this to allow me to write it roman numeral analysis
+;; From https://en.wikipedia.org/wiki/Chord_progression
 (define chord-progression/e
   (fin/e
    ;; three chord
@@ -124,18 +119,11 @@
    (progression '(0 3 4 2))
    (progression '(0 1 4))
    (progression '(1 4 0))
-   ;; xxx too big
-   ;; (progression '(0 3 4 4 0 3 4 0))
-   ;; blues
-   ;; xxx too big
-   ;; (progression '(0 0 0 0 3 3 0 0 4 3 0 0))
    ;; 50s
    (progression '(0 3 4))
    (progression '(0 5 3 4))
    ;; circle
    (progression '(5 1 4 0))
-   ;; xxx too big
-   ;; (progression '(0 3 6 2 5 1 4 0))
    (progression '(0 4 0))
    (progression '(0 3 4 0))
    (progression '(0 5 1 4))
@@ -382,70 +370,54 @@
   (apply list/e (map f l)))
 
 (define bithoven/e
-  (delay
-    (time
-     (vector/e
+  (vector/e
+   (dep/e
+    #:one-way? #f
+    #:flat? #t
+    #:f-range-finite? #t
+    time-sig/e
+    (λ (ts)
       (dep/e
        #:one-way? #f
        #:flat? #t
        #:f-range-finite? #t
-       time-sig/e
-       (λ (ts)
+       (accent-pattern/e ts)
+       (λ (ap)
          (dep/e
           #:one-way? #f
           #:flat? #t
           #:f-range-finite? #t
-          (accent-pattern/e ts)
-          (λ (ap)
-            (dep/e
-             #:one-way? #f
-             #:flat? #t
-             #:f-range-finite? #t
-             (cons/e form/e chord-progression/e)
-             (λ (f*cp)
-               (match-define (cons f cp) f*cp)
-               (define cp-s (progression-seq cp))
-               (define measures-per-part
-                 (*
-                  ;; Every chord has to get one pulse at least (thus division) and
-                  ;; we need a balance of measures (thus ceiling)
-                  (let ()
-                    (ceiling
-                     (/ (length cp-s)
-                        (accent-pattern-pulses-per-measure ap))))
-                  ;; If a form is long, then don't make each part long
-                  (let ()
-                    (define pat-length (length (form-pattern f)))
-                    (cond
-                      [(< pat-length 3) 4]
-                      [(< pat-length 5) 2]
-                      [else 1]))))
-               (define/memo (this-kind-of-part/e len)
-                 (part/e ts ap cp measures-per-part len))
-               (traverse/e
-                (λ (p) (this-kind-of-part/e (cdr p)))
-                (form-part-lens f))))))))
-      bass-notes/e))))
+          (cons/e form/e chord-progression/e)
+          (λ (f*cp)
+            (match-define (cons f cp) f*cp)
+            (define cp-s (progression-seq cp))
+            (define measures-per-part
+              (*
+               ;; Every chord has to get one pulse at least (thus division) and
+               ;; we need a balance of measures (thus ceiling)
+               (let ()
+                 (ceiling
+                  (/ (length cp-s)
+                     (accent-pattern-pulses-per-measure ap))))
+               ;; If a form is long, then don't make each part long
+               (let ()
+                 (define pat-length (length (form-pattern f)))
+                 (cond
+                   [(< pat-length 3) 4]
+                   [(< pat-length 5) 2]
+                   [else 1]))))
+            (define/memo (this-kind-of-part/e len)
+              (part/e ts ap cp measures-per-part len))
+            (traverse/e
+             (λ (p) (this-kind-of-part/e (cdr p)))
+             (form-part-lens f))))))))
+   bass-notes/e))
 
 (define (bithoven+idx)
-  (define e (force bithoven/e))
-  (printf "Bithoven: ")
+  (define e bithoven/e)
   (define n (random-index e))
   (define bi (from-nat e n))
-  (printf "bi is ~v\n" bi)
   (define c (bithoven-input->composition bi))
-  (let ()
-    (local-require racket/pretty)
-    (pretty-print c))
   (values n c))
 
-(define (bithoven)
-  (define-values (n c) (bithoven+idx))
-  c)
-
-(module+ test
-  (require racket/pretty)
-  (pretty-print (bithoven)))
-
-(provide bithoven
-         bithoven+idx)
+(provide bithoven+idx)

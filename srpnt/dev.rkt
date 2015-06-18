@@ -9,7 +9,7 @@
          srpnt/nestration)
 
 (define (use-bithoven)
-  (define comp (bithoven))
+  (define-values (comp compi) (bithoven+idx))
   (define strat (nestration comp))
   (cons comp strat))
 
