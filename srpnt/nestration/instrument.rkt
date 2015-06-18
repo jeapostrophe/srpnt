@@ -2,6 +2,7 @@
 (require racket/match
          racket/fixnum
          racket/flonum
+         racket/contract/base
          racket/math
          srpnt/tones
          srpnt/player
@@ -191,4 +192,70 @@
   (λ (frames which-n)
     ((vector-ref drums which-n) frames)))
 
-(provide (all-defined-out))
+(define (instrument/c note/c wave/c)
+  (-> exact-nonnegative-integer?
+      note/c
+      (listof wave/c)))
+
+(define instrument:pulse/c
+  (instrument/c (cons/c symbol? boolean?) wave:pulse?))
+(define instrument:triangle/c
+  (instrument/c (cons/c symbol? boolean?) wave:triangle?))
+(define instrument:drum/c
+  (-> exact-nonnegative-integer? (listof wave:noise?)))
+(define instrument:drums/c
+  (instrument/c (integer-in 0 2)
+                wave:noise?))
+
+(define (spec/c result/c)
+  spec?)
+
+(provide
+ (contract-out
+  [spec:constant
+   (-> any/c spec?)]
+  [spec:%
+   (-> (spec/c fixnum?) spec?)]
+  [spec:modulate
+   (-> flonum? fixnum? fixnum?
+       spec?)]
+  [spec:adsr
+   (-> (one-of/c 'attack 'decay 'sustain 'release)
+       fixnum? (spec/c any/c)
+       fixnum? (spec/c any/c)
+       fixnum? (spec/c any/c)
+       fixnum? (spec/c any/c)
+       spec?)]
+  [spec:linear
+   (-> fixnum? fixnum?
+       spec?)]
+  [spec:bind
+   (-> (spec/c any/c) (-> any/c any/c)
+       spec?)]
+  [instrument/c
+   (-> contract? contract? contract?)]
+  [instrument:pulse/c
+   contract?]
+  [instrument:triangle/c
+   contract?]
+  [instrument:drum/c
+   contract?]
+  [instrument:drums/c
+   contract?]
+  [i:pulse/spec
+   (-> #:duty (spec/c duty-n/c)
+       #:period (spec/c 11b-period/c)
+       #:volume (spec/c volume/c)
+       instrument:pulse/c)]
+  [i:triangle/spec
+   (-> #:on? (spec/c boolean?)
+       #:period (spec/c 11b-period/c)
+       instrument:triangle/c)]
+  [i:drum/spec
+   (-> #:mode (spec/c boolean?)
+       #:period (spec/c 4b-period/c)
+       #:volume (spec/c volume/c)
+       instrument:drum/c)]
+  [i:drums
+   (-> (vectorof instrument:drum/c)
+       instrument:drums/c)]))

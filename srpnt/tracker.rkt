@@ -5,6 +5,7 @@
          racket/contract/base
          racket/flonum
          srpnt/synth
+         srpnt/nestration/instrument
          srpnt/music-theory)
 
 (define (cmd:hold* frames c)
@@ -115,11 +116,6 @@
     (list (cons drum
                 dms)))))
 
-(define (instrument/c note/c wave/c)
-  (-> exact-nonnegative-integer?
-      note/c
-      (listof wave/c)))
-
 (provide
  (contract-out
   [chorded-song->commands
@@ -128,18 +124,17 @@
        #:ts
        time-sig/c
        #:drum
-       (instrument/c (integer-in 0 2)
-                     wave:noise?)
+       instrument:drums/c
        #:drum-measures
        (listof
         (listof
          (cons/c note/c
                  (integer-in 0 2))))
        #:instruments
-       (vectorof
-        (cons/c (instrument/c (cons/c symbol? boolean?)
-                              (or/c wave:pulse? wave:triangle?))
-                exact-nonnegative-integer?))
+       (vector/c
+        (cons/c instrument:pulse/c exact-nonnegative-integer?)
+        (cons/c instrument:pulse/c exact-nonnegative-integer?)
+        (cons/c instrument:triangle/c exact-nonnegative-integer?))
        #:measures
        (listof
         (listof
