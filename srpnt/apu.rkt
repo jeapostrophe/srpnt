@@ -214,7 +214,8 @@
   (define (tnd-mix t n d)
     (bytes-ref tnd-mix-bs (tnd-mix-off t n d))))
 
-(provide pulse-wave
+(provide AUTHENTIC?
+         pulse-wave
          triangle-wave
          noise
          p-mix

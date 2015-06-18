@@ -159,7 +159,7 @@
     (pretty-print s))
 
   (printf "Tempo is ~v\n" tempo)
-  (chorded-song->commands*
+  (chorded-song->commands
    #:me (cons 0.25 tempo)
    #:ts ts
    #:drum drum

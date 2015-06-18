@@ -11,7 +11,10 @@
 (define (nat-pow2/c k)
   (and/c fixnum? (between/c 0 (fx- (expt 2 k) 1))))
 (define duty-n/c (nat-pow2/c 2))
-(define 11b-period/c (nat-pow2/c 11))
+(define 11b-period/c
+  (if AUTHENTIC?
+      (nat-pow2/c 11)
+      exact-nonnegative-integer?))
 (define volume/c (nat-pow2/c 4))
 (define 4b-period/c (nat-pow2/c 4))
 

@@ -4,12 +4,13 @@
          racket/list
          srpnt/music-theory
          srpnt/nestration/instruments
-         srpnt/music
+         srpnt/synth
+         srpnt/apu
          srpnt/bithoven
          srpnt/nestration)
 
 (define (use-bithoven)
-  (define-values (comp compi) (bithoven+idx))
+  (define-values (compi comp) (bithoven+idx))
   (define strat (nestration comp))
   (cons comp strat))
 
@@ -58,9 +59,11 @@
 ;; xxx test samples
 
 (define audio
-  (or (use-bithoven)
+  (or (test-drum-beat beat:funk-beat)
 
-      (test-drum-beat beat:funk-beat)
+      (use-bithoven)
+
+      
 
       (test-drums 
        (i:drums (vector i:drum:hihat
@@ -89,3 +92,9 @@
       (test-triangle i:triangle:basic)))
 
 (provide audio)
+
+(module+ main
+  (require srpnt/player
+           srpnt/nestration)
+  (match-define (cons c n) audio)
+  (play-one! (nes-harmonic c n)))

@@ -2,10 +2,8 @@
 (require racket/match
          racket/list
          racket/fixnum
+         racket/contract/base
          racket/flonum
-         racket/runtime-path
-         srpnt/tones
-         srpnt/player
          srpnt/synth
          srpnt/music-theory)
 
@@ -89,12 +87,12 @@
 (define (song->commands #:me me #:ts ts parts)
   (combine-parts (map (λ (p) (part->semicmds me ts p)) parts)))
 
-(define (chorded-song->commands* #:me me
-                                 #:ts ts
-                                 #:drum drum
-                                 #:drum-measures dms
-                                 #:instruments iv
-                                 #:measures ms)
+(define (chorded-song->commands #:me me
+                                #:ts ts
+                                #:drum drum
+                                #:drum-measures dms
+                                #:instruments iv
+                                #:measures ms)
   (song->commands
    #:me me
    #:ts ts
@@ -117,29 +115,36 @@
     (list (cons drum
                 dms)))))
 
-(define (chorded-song->commands #:me me
-                                #:ts ts
-                                #:drum drum
-                                #:drum-measure dm
-                                #:instruments iv
-                                #:measures ms)
-  (define dms
-    (for/list ([m (in-list ms)]
-               [i (in-naturals)])
-      dm))
-  (chorded-song->commands* #:me me
-                           #:ts ts
-                           #:drum drum
-                           #:drum-measures dms
-                           #:instruments iv
-                           #:measures ms))
+(define (instrument/c note/c wave/c)
+  (-> exact-nonnegative-integer?
+      note/c
+      (listof wave/c)))
 
-;; xxx look at http://famitracker.com/wiki/index.php?title=7xy and
-;; http://nes-audio.com/manuals/nijuu/nijuu_manual.html for effects
-
-;; xxx look at
-;; http://famitracker.com/wiki/index.php?title=Pattern_editor for
-;; tracking ideas
-
-;; xxx cleanup
-(provide (all-defined-out))
+(provide
+ (contract-out
+  [chorded-song->commands
+   (-> #:me
+       metronome/c
+       #:ts
+       time-sig/c
+       #:drum
+       (instrument/c (integer-in 0 2)
+                     wave:noise?)
+       #:drum-measures
+       (listof
+        (listof
+         (cons/c note/c
+                 (integer-in 0 2))))
+       #:instruments
+       (vectorof
+        (cons/c (instrument/c (cons/c symbol? boolean?)
+                              (or/c wave:pulse? wave:triangle?))
+                exact-nonnegative-integer?))
+       #:measures
+       (listof
+        (listof
+         (cons/c note/c
+                 (cons/c
+                  (listof (cons/c symbol? exact-nonnegative-integer?))
+                  boolean?))))
+       (listof synth:frame?))]))
