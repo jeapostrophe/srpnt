@@ -2,11 +2,14 @@
 (require racket/match
          racket/format
          racket/port
+         data/enumerate
+         data/enumerate/lib
          charterm
          lux
          lux/chaos/charterm
          srpnt/player
          srpnt/nestration
+         srpnt/band
          srpnt/bithoven)
 
 (struct studio (si ci c ni n t)
@@ -67,12 +70,13 @@
          (define (word-tick w)
            (match w
              [(studio si _ #f _ _ _)
-              (define-values (ci c) (bithoven+idx))
+              (define ci (random-index bithoven/e))
+              (define c (bithoven->composition (from-nat bithoven/e ci)))
               (studio si ci c #f #f #f)]
              [(studio si ci c _ #f _)
-              (define n/e (nestration/e #:style (list-ref styles si) c))
-              (define-values (ni n)
-                (nestration+idx #:n/e n/e c))
+              (define n/e (make-nestration/e #:style (list-ref styles si) c))
+              (define ni (random-index n/e))
+              (define n (from-nat n/e ni))
               (studio si ci c ni n #f)]
              [(studio si ci c ni n #f)
               (studio si ci c ni n
@@ -81,7 +85,7 @@
                        (λ ()
                          (parameterize
                              ([current-output-port (open-output-nowhere)])
-                           (play-one! (nes-harmonic c n))))))]
+                           (play-one! (compile-song c n))))))]
              [(studio si ci c ni n t)
               (if (thread-dead? t)
                   (studio si ci c ni n #f)

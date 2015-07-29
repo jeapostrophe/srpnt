@@ -5,8 +5,8 @@ srpnt - synthesized, random pulse, noise, and triangle (wip)
 Samples are expected to be 1-channel, unsigned 8-byte PCM data. You
 can create that format from an arbitrary input with ffmpeg:
 
-ffmpeg -i INPUT -map_channel 0.0.0 -f u8 OUTPUT.raw
-ffmpeg -i INPUT -map_channel 0.0.1 -f u8 OUTPUT.raw
+ffmpeg -i INPUT -map_channel 0.0.0 -f u8 OUTPUT_LEFT.raw
+ffmpeg -i INPUT -map_channel 0.0.1 -f u8 OUTPUT_RIGHT.raw
 OR
 ffmpeg -i INPUT -ac 1 -f u8 OUTPUT.raw
 
@@ -21,10 +21,8 @@ FILE=song ; ffmpeg -f u8 -i ${FILE}.l.raw -f u8 -i ${FILE}.r.raw -filter_complex
 
 TODO:
 
-* clean up & contract files
-     226     727    7504 ./srpnt/nestration.rkt
-     band.rkt
 * merge files
+      96     334    3191 ./srpnt/dev.rkt
       96     334    3191 ./srpnt/gui.rkt
       27      57     531 ./srpnt/player.rkt
       98     319    3298 ./srpnt/studio-x.rkt

@@ -17,7 +17,7 @@
      (λ ()
        (define a (load-audio file-path))
        (match-define (cons c n) a)
-       (play-one! (nes-harmonic c n)))))
+       (play-one! (compile-song c n)))))
   (define (make-fs-evts)
     (for/list ([fp (in-list (cons file-path other-files))])
       (filesystem-change-evt fp)))
