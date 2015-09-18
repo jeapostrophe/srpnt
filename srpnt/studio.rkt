@@ -1,6 +1,7 @@
 #lang racket/base
 (require racket/match
          srpnt/player
+         srpnt/band
          srpnt/nestration)
 
 (define (load-audio mp)

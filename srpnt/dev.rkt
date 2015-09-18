@@ -63,9 +63,18 @@
 ;; xxx test samples
 
 (define audio
-  (or (use-bithoven)
+  (or (test-drum-beat beat:heavy-metal)
 
-      (test-drum-beat beat:funk-beat)
+      (test-pulse (i:pulse:plucky 2))
+      (test-pulse (i:pulse:natural 2))
+      (test-pulse (i:pulse:basic 2))
+      
+
+      
+
+      (use-bithoven)
+
+      
 
       (test-drums 
        (i:drums (vector i:drum:hihat
@@ -74,9 +83,9 @@
 
       
       (test-triangle i:triangle:basic)
-      (test-pulse (i:pulse:natural 2))
-      (test-pulse (i:pulse:plucky 2))
-      (test-pulse (i:pulse:basic 2))
+      
+      
+      
       (test-pulse (i:pulse:vibrato 5.0 2))
       (test-pulse (i:pulse:tremolo 120.0 2))
       
