@@ -6,7 +6,7 @@
          racket/contract/base
          "h.rkt")
 
-(define reasonable-latency (fl/ 1.0 60.0))
+(define reasonable-latency (fl/ 1.0 30.0))
 
 (struct bp (stream buf))
 
