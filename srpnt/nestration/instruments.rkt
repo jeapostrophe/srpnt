@@ -169,10 +169,10 @@
         i:drum:bass))
 
 (define i:drums:off
-  (i:drums (vector i:drum:off i:drum:off i:drum:off)))
+  (vector i:drum:off i:drum:off i:drum:off))
 
 (define i:drums:basic
-  (i:drums (vector i:drum:hihat i:drum:bass i:drum:snare)))
+  (vector i:drum:hihat i:drum:bass i:drum:snare))
 
 (define is:drums
   (for*/list ([hihat (in-list is:drum)]
@@ -180,46 +180,103 @@
               [snare (in-list is:drum)]
               #:unless (and (eq? hihat bass)
                             (eq? bass snare)))
-    (i:drums (vector hihat bass snare))))
+    (vector hihat bass snare)))
 
 ;; From: http://en.wikipedia.org/wiki/Drum_beat
 
 ;; MORE study the awesome beats of sin and punishment 2
-(define beat:heavy-metal
-  (list (cons 0.125 1) (cons 0.0625 1) (cons 0.0625 1)
-        (cons 0.125 2) (cons 0.0625 1) (cons 0.0625 1)
-        (cons 0.125 1) (cons 0.0625 1) (cons 0.0625 1)
-        (cons 0.125 2) (cons 0.0625 1) (cons 0.0625 1)))
-(define beat:blast-beat
-  (list (cons 0.125 1) (cons 0.125 2)
-        (cons 0.125 1) (cons 0.125 2)
-        (cons 0.125 1) (cons 0.125 2)
-        (cons 0.125 1) (cons 0.125 2)))
-(define beat:funk-beat
-  (list (cons 0.125 1) (cons 0.125 0)
-        (cons 0.125 2) (cons 0.125 0)
-        (cons 0.125 1) (cons 0.125 1)
-        (cons 0.125 0) (cons 0.125 2)))
-(define beat:double-time
-  (list (cons 0.0625 1) (cons 0.0625 0) (cons 0.0625 2) (cons 0.0625 0)
-        (cons 0.0625 1) (cons 0.0625 0) (cons 0.0625 2) (cons 0.0625 0)
-        (cons 0.0625 1) (cons 0.0625 0) (cons 0.0625 2) (cons 0.0625 0)
-        (cons 0.0625 1) (cons 0.0625 0) (cons 0.0625 2) (cons 0.0625 0)))
 (define beat:straight-rock
-  (list (cons 0.125 1) (cons 0.125 0)
-        (cons 0.125 2) (cons 0.125 0)
-        (cons 0.125 1) (cons 0.125 0)
-        (cons 0.125 2) (cons 0.125 0)))
-(define beat:alternating-on
-  (list (cons 0.125 0) (cons 0.125 0)
-        (cons 0.125 1) (cons 0.125 0)
-        (cons 0.125 0) (cons 0.125 0)
-        (cons 0.125 2) (cons 0.125 0)))
+  (list (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))
+        (list (cons 0.25 #t) (cons 0.25 #f)
+              (cons 0.25 #t) (cons 0.25 #f))
+        (list (cons 0.25 #f) (cons 0.25 #t)
+              (cons 0.25 #f) (cons 0.25 #t))))
+(define beat:double-time
+  (list (list (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.0625 #t) (cons 0.0625 #t))
+        (list (cons 0.125 #t) (cons 0.125 #f)
+              (cons 0.125 #t) (cons 0.125 #f)
+              (cons 0.125 #t) (cons 0.125 #f)
+              (cons 0.125 #t) (cons 0.125 #f))
+        (list (cons 0.125 #f) (cons 0.125 #t)
+              (cons 0.125 #f) (cons 0.125 #t)
+              (cons 0.125 #f) (cons 0.125 #t)
+              (cons 0.125 #f) (cons 0.125 #t))))
+(define beat:blast-beat1
+  (list (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))
+        (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))
+        (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))))
+(define beat:blast-beat2
+  (list (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))
+        (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))
+        (list (cons 0.0625 #f) (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.0625 #f))))
+(define beat:heavy-metal
+  (list (list (cons 0.25 #t) (cons 0.25 #t)
+              (cons 0.25 #t) (cons 0.25 #t))
+        (list (cons 0.125 #t) (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.125 #t) (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.125 #t) (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.125 #t) (cons 0.0625 #t) (cons 0.0625 #t))
+        (list (cons 0.25 #f) (cons 0.25 #t)
+              (cons 0.25 #f) (cons 0.25 #t))))
+(define beat:funk-beat
+  (list (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))
+        (list (cons 0.125 #t) (cons 0.125 #f)
+              (cons 0.125 #f) (cons 0.125 #f)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #f) (cons 0.125 #f))
+        (list (cons 0.125 #f) (cons 0.125 #f)
+              (cons 0.125 #t) (cons 0.125 #f)
+              (cons 0.125 #f) (cons 0.125 #f)
+              (cons 0.125 #f) (cons 0.125 #t))))
 (define beat:duple-triplets
-  (list (cons 0.125 1) (cons 0.0625 0) (cons 0.0625 0)
-        (cons 0.125 2) (cons 0.0625 0) (cons 0.0625 0)
-        (cons 0.125 1) (cons 0.0625 0) (cons 0.0625 0)
-        (cons 0.125 2) (cons 0.0625 0) (cons 0.0625 0)))
+  (list (list (cons 0.125 #t) (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.125 #t) (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.125 #t) (cons 0.0625 #t) (cons 0.0625 #t)
+              (cons 0.125 #t) (cons 0.0625 #t) (cons 0.0625 #t))
+        (list (cons 0.25 #t) (cons 0.25 #f)
+              (cons 0.25 #t) (cons 0.25 #f))
+        (list (cons 0.25 #f) (cons 0.25 #t)
+              (cons 0.25 #f) (cons 0.25 #t))))
+(define beat:alternating-on
+  (list (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))
+        (list (cons 0.25 #f) (cons 0.25 #t)
+              (cons 0.25 #f) (cons 0.25 #t))
+        (list (cons 0.25 #t) (cons 0.25 #f)
+              (cons 0.25 #t) (cons 0.25 #f))))
 
 (define beats:4/4
   (list
@@ -227,25 +284,18 @@
    beat:straight-rock
    beat:duple-triplets
    beat:double-time
-   beat:blast-beat
    beat:funk-beat
    beat:heavy-metal))
 
-(define beats:4/4-one-accent
-  (list (list (cons 0.125 1) (cons 0.125 0)
-              (cons 0.125 0) (cons 0.125 0)
-              (cons 0.125 0) (cons 0.125 0)
-              (cons 0.125 0) (cons 0.125 0))
-        (list (cons 0.125 2) (cons 0.125 0)
-              (cons 0.125 0) (cons 0.125 0)
-              (cons 0.125 0) (cons 0.125 0)
-              (cons 0.125 0) (cons 0.125 0))))
-
 (define beats:3/4
-  (list
-   (list (cons 0.125 1) (cons 0.125 0)
-         (cons 0.125 0) (cons 0.125 0)
-         (cons 0.125 0) (cons 0.125 0))))
+  (list (list (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t)
+              (cons 0.125 #t) (cons 0.125 #t))
+        (list (cons 0.25 #t)
+              (cons 0.25 #f)
+              (cons 0.25 #f))
+        (list (cons 0.25 #f)
+              (cons 0.25 #t)
+              (cons 0.25 #t))))
 
-(provide i:drums
-         (all-defined-out))
+(provide (all-defined-out))

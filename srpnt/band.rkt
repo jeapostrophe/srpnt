@@ -56,7 +56,7 @@
              (cons (vector-ref instruments tenor-idx)
                    (fx- base-octave tenor-down))
              (cons (vector-ref instruments bass-idx)
-                   (fx- base-octave bass-down))))
+                   (fxmax 0 (fx- (fx- base-octave tenor-down) bass-down)))))
    #:measures
    (let ()
      (define part->rest?ss (make-hash))

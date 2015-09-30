@@ -67,8 +67,8 @@
      (error 'apply-mapish "Tracks are not compatible: ~v\n" ls)]))
 
 (define (combine-semicmds scs)
-  (match-define (list p1 p2 t1 t2 n) scs)
-  (synth:frame p1 p2 t1 t2 n #f #f))
+  (match-define (list p1 p2 t1 t2 n1 n2 n3) scs)
+  (synth:frame p1 p2 t1 t2 n1 n2 n3 #f #f))
 
 (define (combine-parts part-semicmds)
   (apply-mapish combine-semicmds part-semicmds))
@@ -78,31 +78,36 @@
 
 (define (chorded-song->commands #:me me
                                 #:ts ts
-                                #:drum drum
+                                #:drum drums
                                 #:drum-measures dms
                                 #:instruments iv
                                 #:measures ms)
+  (local-require racket/pretty)
+  (pretty-print ms)
+  (define track
+    (append
+     (for/list ([i*o (in-vector iv)]
+                [in (in-naturals)])
+       (match-define (cons i inst-octave) i*o)
+       (cons i
+             (for/list ([m (in-list ms)])
+               (for/list ([n (in-list m)])
+                 (match-define (list* note tones accent?) n)
+                 (match (list-ref tones in)
+                   [(cons tone-name note-doctave)
+                    (define tone
+                      (string->symbol
+                       (format "~a~a" tone-name (+ inst-octave note-doctave))))
+                    (list* note tone accent?)]
+                   [#f
+                    (cons note #f)])))))
+     (for/list ([drum (in-vector drums)]
+                [i (in-naturals)])
+       (cons drum (map (λ (l) (list-ref l i)) dms)))))
   (song->commands
    #:me me
    #:ts ts
-   (append
-    (for/list ([i*o (in-vector iv)]
-               [in (in-naturals)])
-      (match-define (cons i inst-octave) i*o)
-      (cons i
-            (for/list ([m (in-list ms)])
-              (for/list ([n (in-list m)])
-                (match-define (list* note tones accent?) n)
-                (match (list-ref tones in)
-                  [(cons tone-name note-doctave)
-                   (define tone
-                     (string->symbol
-                      (format "~a~a" tone-name (+ inst-octave note-doctave))))
-                   (list* note tone accent?)]
-                  [#f
-                   (cons note #f)])))))
-    (list (cons drum
-                dms)))))
+   track))
 
 (provide
  (contract-out
@@ -112,12 +117,14 @@
        #:ts
        time-sig/c
        #:drum
-       instrument:drums/c
+       (vector/c instrument:drum/c
+                 instrument:drum/c
+                 instrument:drum/c)
        #:drum-measures
        (listof
-        (listof
-         (cons/c note/c
-                 (integer-in 0 2))))
+        (list/c (listof (cons/c note/c boolean?))
+                (listof (cons/c note/c boolean?))
+                (listof (cons/c note/c boolean?))))
        #:instruments
        (vector/c
         (cons/c instrument:pulse-or-triangle/c exact-nonnegative-integer?)

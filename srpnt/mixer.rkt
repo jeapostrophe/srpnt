@@ -8,8 +8,8 @@
 (struct mixer (begin mix end close))
 (begin-encourage-inline
   (define (mixer-begin! m) ((mixer-begin m)))
-  (define (mixer-mix! m i p1 p2 t1 t2 n ld rd)
-    ((mixer-mix m) i p1 p2 t1 t2 n ld rd))
+  (define (mixer-mix! m i p1 p2 t1 t2 n1 n2 n3 ld rd)
+    ((mixer-mix m) i p1 p2 t1 t2 n1 n2 n3 ld rd))
   (define (mixer-end! m) ((mixer-end m)))
   (define (mixer-close! m) ((mixer-close m))))
 
@@ -17,9 +17,9 @@
   (define out-ch channels)
   (define out-bs (make-buffer out-ch))
   (define begin! void)
-  (define (mix! i p1 p2 t1 t2 n ld rd)
+  (define (mix! i p1 p2 t1 t2 n1 n2 n3 ld rd)
     (define base-mixed
-      (fx+ n
+      (fx+ (fx+ n1 (fx+ n2 n3))
            (fx+ (fx+ p1 p2)
                 (fx+ t1 t2))))
     #; #; #;

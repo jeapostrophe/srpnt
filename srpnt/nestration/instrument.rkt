@@ -177,19 +177,15 @@
       (wave:triangle on? per))))
 
 (define (i:drum/spec #:mode mspec #:period pspec #:volume vspec)
-  (λ (frames)
+  (λ (frames on?)
     (define m* (stage-spec mspec frames))
     (define p* (stage-spec pspec frames))
     (define v* (stage-spec vspec frames))
     (for/list ([f (in-range frames)])
       (define short? (eval-spec m* f))
       (define per (eval-spec p* f))
-      (define volume (fxmin 15 (fxmax 0 (eval-spec v* f))))
+      (define volume (if on? (fxmin 15 (fxmax 0 (eval-spec v* f))) 0))
       (wave:noise short? per volume))))
-
-(define (i:drums drums)
-  (λ (frames which-n)
-    ((vector-ref drums which-n) frames)))
 
 (define (instrument/c note/c wave/c)
   (-> exact-nonnegative-integer?
@@ -205,10 +201,7 @@
                 (or/c wave:pulse?
                       wave:triangle?)))
 (define instrument:drum/c
-  (-> exact-nonnegative-integer? (listof wave:noise?)))
-(define instrument:drums/c
-  (instrument/c (integer-in 0 2)
-                wave:noise?))
+  (-> exact-nonnegative-integer? boolean? (listof wave:noise?)))
 
 (define (spec/c result/c)
   spec?)
@@ -245,8 +238,6 @@
    contract?]
   [instrument:drum/c
    contract?]
-  [instrument:drums/c
-   contract?]
   [i:pulse/spec
    (-> #:duty (spec/c duty-n/c)
        #:period (spec/c 11b-period/c)
@@ -260,7 +251,4 @@
    (-> #:mode (spec/c boolean?)
        #:period (spec/c 4b-period/c)
        #:volume (spec/c volume/c)
-       instrument:drum/c)]
-  [i:drums
-   (-> (vectorof instrument:drum/c)
-       instrument:drums/c)]))
+       instrument:drum/c)]))

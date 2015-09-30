@@ -74,13 +74,26 @@
 ;; 16947999029795477887876025486712914
 
 (define audio
-  (or (test-pulse (i:pulse:plucky 2))
-
-      (use-bithoven
-       #:style
+  (or (use-bithoven
+       #:style       
        (struct-copy style style:classic
-                    [tempo/e (fin/e 160)])
+                    [scales/e (fin/e scale-diatonic-major
+                                     scale-natural-minor
+                                     scale-melodic-minor
+                                     scale-harmonic-minor)]
+                    [tempo/e (range/e 130 200)])
+       #;
+       (struct-copy style style:classic
+                    [scales/e (fin/e scale-harmonic-minor)]
+                    [tempo/e (fin/e 120)])
        #f #f)
+
+      (test-drum-beat beat:funk-beat)
+
+      (test-drums i:drums:basic)
+
+      (test-pulse (i:pulse:plucky 2))
+      
       
       (test-drum-beat beat:heavy-metal)
 
@@ -91,21 +104,15 @@
       (use-rand-bithoven)
 
       (test-drums 
-       (i:drums (vector i:drum:hihat
-                        i:drum:bass
-                        i:drum:snare)))
+       (vector i:drum:hihat
+               i:drum:bass
+               i:drum:snare))
 
       
       (test-triangle i:triangle:basic)
       
-      
-      
       (test-pulse (i:pulse:vibrato 5.0 2))
-      (test-pulse (i:pulse:tremolo 120.0 2))
-      
-      
-      
-      (test-drums i:drums:basic)      
+      (test-pulse (i:pulse:tremolo 120.0 2))      
         
       (test-pulse (i:pulse:natural 2))
       (test-pulse (i:pulse:plucky 2))
