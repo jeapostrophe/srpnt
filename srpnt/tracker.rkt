@@ -67,18 +67,8 @@
      (error 'apply-mapish "Tracks are not compatible: ~v\n" ls)]))
 
 (define (combine-semicmds scs)
-  (let loop ([p1 #f] [p2 #f] [t #f] [n #f] [scs scs])
-    (match scs
-      ['()
-       (synth:frame p1 p2 t n #f #f)]
-      [(cons #f scs)
-       (loop p1 p2 t n scs)]
-      [(cons (? wave:pulse? new-p) scs)
-       (loop new-p p1 t n scs)]
-      [(cons (? wave:triangle? new-t) scs)
-       (loop p1 p2 new-t n scs)]
-      [(cons (? wave:noise? new-n) scs)
-       (loop p1 p2 t new-n scs)])))
+  (match-define (list p1 p2 t1 t2 n) scs)
+  (synth:frame p1 p2 t1 t2 n #f #f))
 
 (define (combine-parts part-semicmds)
   (apply-mapish combine-semicmds part-semicmds))
@@ -130,6 +120,7 @@
                  (integer-in 0 2))))
        #:instruments
        (vector/c
+        (cons/c instrument:pulse-or-triangle/c exact-nonnegative-integer?)
         (cons/c instrument:pulse-or-triangle/c exact-nonnegative-integer?)
         (cons/c instrument:pulse-or-triangle/c exact-nonnegative-integer?)
         (cons/c instrument:pulse-or-triangle/c exact-nonnegative-integer?))

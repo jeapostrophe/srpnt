@@ -29,20 +29,22 @@
 (define blank-dmc-bs (make-buffer 1))
 (define off-wave:dmc (wave:dmc blank-dmc-bs 0))
 
-(struct synth:frame (p1 p2 t n ld rd))
+(struct synth:frame (p1 p2 t1 t2 n ld rd))
 
-(struct synth (m p1-% p2-% t-% n-reg n-%) #:mutable)
+(struct synth (m p1-% p2-% t1-% t2-% n-reg n-%) #:mutable)
 (define (make-synth m)
-  (synth m 0.0 0.0 0.0 1 0.0))
+  (synth m 0.0 0.0 0.0 0.0 1 0.0))
 (define (synth-step! s f)
   (define m (synth-m s))
-  (match-define (synth:frame p1 p2 t n ld rd) f)
+  (match-define (synth:frame p1 p2 t1 t2 n ld rd) f)
   (match-define (wave:pulse p1-duty p1-period p1-vol)
     (or p1 off-wave:pulse))
   (match-define (wave:pulse p2-duty p2-period p2-vol)
     (or p2 off-wave:pulse))
-  (match-define (wave:triangle t-on? t-period)
-    (or t off-wave:triangle))
+  (match-define (wave:triangle t1-on? t1-period)
+    (or t1 off-wave:triangle))
+  (match-define (wave:triangle t2-on? t2-period)
+    (or t2 off-wave:triangle))
   (match-define (wave:noise n-short? n-period n-volume)
     (or n off-wave:noise))
   (match-define (wave:dmc ld-bs ld-off)
@@ -52,13 +54,15 @@
 
   (mixer-begin! m)
   (for ([i (in-range samples-per-buffer)])
-    (match-define (synth _ p1-% p2-% t-% n-reg n-%) s)
+    (match-define (synth _ p1-% p2-% t1-% t2-% n-reg n-%) s)
     (define-values (p1 new-p1-%)
       (pulse-wave p1-duty p1-period p1-vol p1-%))
     (define-values (p2 new-p2-%)
       (pulse-wave p2-duty p2-period p2-vol p2-%))
-    (define-values (t new-t-%)
-      (triangle-wave t-on? t-period t-%))
+    (define-values (t1 new-t1-%)
+      (triangle-wave t1-on? t1-period t1-%))
+    (define-values (t2 new-t2-%)
+      (triangle-wave t2-on? t2-period t2-%))
     (define-values (n new-n-reg new-n-%)
       (noise n-short? n-period n-volume n-reg n-%))
     (define ld
@@ -68,10 +72,11 @@
 
     (set-synth-p1-%! s new-p1-%)
     (set-synth-p2-%! s new-p2-%)
-    (set-synth-t-%! s new-t-%)
+    (set-synth-t1-%! s new-t1-%)
+    (set-synth-t2-%! s new-t2-%)
     (set-synth-n-reg! s new-n-reg)
     (set-synth-n-%! s new-n-%)
-    (mixer-mix! m i p1 p2 t n ld rd))
+    (mixer-mix! m i p1 p2 t1 t2 n ld rd))
   (mixer-end! m))
 
 (provide
@@ -99,7 +104,8 @@
   [struct synth:frame
     ([p1 (or/c #f wave:pulse?)]
      [p2 (or/c #f wave:pulse?)]
-     [t (or/c #f wave:triangle?)]
+     [t1 (or/c #f wave:triangle?)]
+     [t2 (or/c #f wave:triangle?)]
      [n (or/c #f wave:noise?)]
      [ld (or/c #f wave:dmc?)]
      [rd (or/c #f wave:dmc?)])]

@@ -7,7 +7,7 @@
 
 (define (force-lazy-scale/tones scale rest? tones)
   (for/list ([t*o (in-list tones)]
-             [can-be-rest? (in-list (list #t #t #f))])
+             [can-be-rest? (in-list (list #t #t #t #f))])
     (if (and can-be-rest? rest?)
         #f
         (match t*o
@@ -35,8 +35,8 @@
 (define (compile-song c s)
   (match-define (vector ts ap pattern parts) c)
   (match-define (vector scale-root scale-kind tempo
-                        pulse1 pulse2 triangle drum
-                        mhb base-octave melody-up bass-down
+                        pulse1 pulse2 triangle1 triangle2 drum
+                        mhtb base-octave melody-up tenor-down bass-down
                         part->dm part->rest-randoms)
                 s)
   (define scale (scale-kind scale-root))
@@ -47,12 +47,14 @@
    #:drum drum
    #:instruments
    (let ()
-     (define instruments (vector pulse1 pulse2 triangle))
-     (match-define (list melody-idx harmony-idx bass-idx) mhb)
+     (define instruments (vector pulse1 pulse2 triangle1 triangle2))
+     (match-define (list melody-idx harmony-idx tenor-idx bass-idx) mhtb)
      (vector (cons (vector-ref instruments melody-idx)
                    (fx+ base-octave melody-up))
              (cons (vector-ref instruments harmony-idx)
                    base-octave)
+             (cons (vector-ref instruments tenor-idx)
+                   (fx- base-octave tenor-down))
              (cons (vector-ref instruments bass-idx)
                    (fx- base-octave bass-down))))
    #:measures

@@ -72,7 +72,7 @@
     (values out next-%)))
 
 ;; The triangle goes through a fixed amplitude pattern (it has no
-;; volumen control). We implement this by multiplying the cycle
+;; volume control). We implement this by multiplying the cycle
 ;; percentage by the width of the pattern, thus getting the sample of
 ;; the pattern to look at.
 (define TRIANGLE-PATTERN
@@ -97,6 +97,9 @@
 
 (define NOISE-PERIODS
   (vector 4 8 16 32 64 96 128 160 202 254 380 508 762 1016 2034 4068))
+;; xxx i think i am doing this wrong, because when i get a period, i
+;; restrict it to 4 bits, but i don't refer to this table, as i think
+;; i should.
 (begin-encourage-inline
   (define (noise-period->freq period)
     (fl* (pulse-period->freq period) 8.0)))
@@ -225,3 +228,4 @@
          read-sample/port
          read-sample/path
          read-sample/gzip)
+

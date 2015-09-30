@@ -213,6 +213,7 @@
   [metronome/c contract?]
   [note/c contract?]
   [frames-in-note.0 (-> metronome/c note/c flonum?)]
+  [frames-in-note (-> metronome/c note/c fixnum?)]
   [time-sig/c contract?]
   [ts:4:4 time-sig/c]
   [ts:3:4 time-sig/c]
@@ -233,4 +234,9 @@
   [scale-chromatic scale/c]
   [lazy-scale scale-tones/c]
   [chord-triad (-> scale-tones/c scale-tones/c)]
+  [chord-seventh (-> scale-tones/c scale-tones/c)]
+  [chord-sixth (-> scale-tones/c scale-tones/c)]
   [mode (-> scale-tones/c fixnum? scale-tones/c)]))
+
+(module+ test
+  (chord-triad (mode lazy-scale 3)))

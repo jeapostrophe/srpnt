@@ -20,8 +20,8 @@
 (define triangle/e (apply fin/e is:triangles))
 (define drums/e (apply fin/e is:drums))
 
-(define mhb/e
-  (permutations-of-n/e 3))
+(define mhtb/e
+  (permutations-of-n/e 4))
 
 (define (drum-measure/e ts ap)
   (cond
@@ -33,7 +33,10 @@
            beats:3/4)]))
 
 (struct style
-  (name tone-names/e scales/e tempo/e pulse1/e pulse2/e triangle/e drums/e mhb/e))
+  (name tone-names/e scales/e tempo/e
+        pulse1/e pulse2/e
+        triangle1/e triangle2/e
+        drums/e mhtb/e))
 
 (define-syntax-rule (define-styles styles [id . expr] ...)
   (begin (define id (style . expr)) ...
@@ -47,19 +50,20 @@
    (apply fin/e is:pulses-classic)
    (apply fin/e is:pulses-classic)
    (fin/e i:triangle:basic i:triangle:plucky)
+   (fin/e i:triangle:basic i:triangle:plucky)
    (fin/e i:drums:basic)
-   (fin/e (list 0 1 2))]
+   (fin/e (list 0 1 2 3))]
   [style:happy
    "Happy"
    tone-names/e (fin/e scale-diatonic-major) (fin/e 200)
-   pulse/e pulse/e triangle/e drums/e mhb/e]
+   pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e]
   [style:sad
    "Sad"
    tone-names/e (fin/e scale-harmonic-minor) (fin/e 120)
-   pulse/e pulse/e triangle/e drums/e mhb/e]
+   pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e]
   [style:all
    "ALL"
-   tone-names/e scales/e tempo/e pulse/e pulse/e triangle/e drums/e mhb/e])
+   tone-names/e scales/e tempo/e pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e])
 
 (define (make-nestration/e
          #:style [style style:all]
@@ -68,15 +72,16 @@
          #:tempo/e [tempo/e (style-tempo/e style)]
          #:pulse1/e [pulse1/e (style-pulse1/e style)]
          #:pulse2/e [pulse2/e (style-pulse2/e style)]
-         #:triangle/e [triangle/e (style-triangle/e style)]
+         #:triangle1/e [triangle1/e (style-triangle1/e style)]
+         #:triangle2/e [triangle2/e (style-triangle2/e style)]
          #:drums/e [drums/e (style-drums/e style)]
-         #:mhb/e [mhb/e (style-mhb/e style)]
+         #:mhtb/e [mhtb/e (style-mhtb/e style)]
          c)
   (match-define (vector ts ap pattern parts) c)
   (vector/e tone-names/e scales/e tempo/e
-            pulse1/e pulse2/e triangle/e drums/e
-            mhb/e
-            (fin/e 2 3) (fin/e 1 2) (fin/e 1 2)
+            pulse1/e pulse2/e triangle1/e triangle2/e drums/e
+            mhtb/e
+            (fin/e 2 3) (fin/e 1 2) (fin/e 1 2) (fin/e 1 2)
             (hash-traverse/e
              #:get-contract (λ (x) (listof (cons/c real? exact-nonnegative-integer?)))
              (λ (_) (drum-measure/e ts ap))
@@ -95,4 +100,5 @@
              parts)))
 
 ;; xxx contracts
-(provide make-nestration/e)
+(provide (struct-out style)
+         make-nestration/e)

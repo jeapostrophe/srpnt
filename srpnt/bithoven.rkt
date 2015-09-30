@@ -4,6 +4,7 @@
          racket/contract
          racket/flonum
          racket/match
+         racket/promise
          srpnt/music-theory
          math/base
          data/enumerate
@@ -178,8 +179,13 @@
     (printf "(f ~a ~a) = ~a\n"
             n k (enum-count e))))
 
+(define chord-kinds
+  (vector chord-triad chord-seventh chord-sixth))
+(define chord-kind/e
+  (below/e (vector-length chord-kinds)))
+
 (define tones/e
-  (vector/e (below/e 3) (below/e 3) (below/e 3)))
+  (vector/e chord-kind/e (below/e 4) (below/e 4) (below/e 4) (below/e 4)))
 
 (define (note/e beat-unit len)
   (cons/e (single/e (* len beat-unit)) tones/e))
@@ -304,15 +310,15 @@
                                   (vector 0.125 'N) (vector 0.125 'N)
                                   (vector 0.125 'N) (vector 0.250 'N)))))))
 
+(define (list-mref l i)
+  (list-ref l (modulo i (length l))))
+
 (define (bithoven->composition bi)
   (match-define
     (vector (cons ts (cons ap (cons (cons f cp) cps*crs-s))) bns)
     bi)
   (define scale lazy-scale)
   (define cp-s (progression-seq cp))
-  (define btones
-    (for/list ([bn (in-list bns)])
-      (first (chord-triad (mode scale bn)))))
   (define parts
     (for/hasheq ([p (in-list (form-part-lens f))]
                  [chord-pulses*chord-rhythm (in-list cps*crs-s)])
@@ -324,25 +330,17 @@
          (append*
           (for/list ([chord (in-list cp-s)]
                      [rhythm (in-list chord-rhythm)])
-            (define tones (chord-triad (mode scale chord)))
             (for/list ([r-info (in-list (filter cons? (append* rhythm)))])
-              (match-define (cons r (vector melody-idx harmony-idx bass-idx))
+              (match-define (cons r (vector chord-kind-idx melody-idx harmony-idx
+                                            tenor-idx bass-idx))
                 r-info)
-              (define melody (list-ref tones melody-idx))
-              (define harmony (list-ref tones harmony-idx))
-              (define allowed-bass-notes
-                (filter (λ (t)
-                          (memf (λ (ct) (eq? (car ct) (car t)))
-                                tones))
-                        btones))
-              (when (empty? allowed-bass-notes)
-                (error 'bithoven "No bass tone was found in ~v for ~v"
-                       btones tones))
-              (define bass
-                (list-ref allowed-bass-notes
-                          (modulo bass-idx
-                                  (length allowed-bass-notes))))
-              (vector r (list melody harmony bass)))))))
+              (define chord-kind (vector-ref chord-kinds chord-kind-idx))
+              (define tones (chord-kind (mode scale chord)))
+              (define melody (list-mref tones melody-idx))
+              (define harmony (list-mref tones harmony-idx))              
+              (define tenor (list-mref tones tenor-idx))
+              (define bass (list-mref tones bass-idx))
+              (vector r (list melody harmony tenor bass)))))))
       (values label
               chord-track)))
   (vector (time-sig-ts ts) (accent-pattern-accents ap) (form-pattern f) parts))
@@ -369,49 +367,50 @@
 (define (traverse/e f l)
   (apply list/e (map f l)))
 
-(define bithoven/e
-  (vector/e
-   (dep/e
-    #:one-way? #f
-    #:flat? #t
-    #:f-range-finite? #t
-    time-sig/e
-    (λ (ts)
-      (dep/e
-       #:one-way? #f
-       #:flat? #t
-       #:f-range-finite? #t
-       (accent-pattern/e ts)
-       (λ (ap)
-         (dep/e
-          #:one-way? #f
-          #:flat? #t
-          #:f-range-finite? #t
-          (cons/e form/e chord-progression/e)
-          (λ (f*cp)
-            (match-define (cons f cp) f*cp)
-            (define cp-s (progression-seq cp))
-            (define measures-per-part
-              (*
-               ;; Every chord has to get one pulse at least (thus division) and
-               ;; we need a balance of measures (thus ceiling)
-               (let ()
-                 (ceiling
-                  (/ (length cp-s)
-                     (accent-pattern-pulses-per-measure ap))))
-               ;; If a form is long, then don't make each part long
-               (let ()
-                 (define pat-length (length (form-pattern f)))
-                 (cond
-                   [(< pat-length 3) 4]
-                   [(< pat-length 5) 2]
-                   [else 1]))))
-            (define/memo (this-kind-of-part/e len)
-              (part/e ts ap cp measures-per-part len))
-            (traverse/e
-             (λ (p) (this-kind-of-part/e (cdr p)))
-             (form-part-lens f))))))))
-   bass-notes/e))
+(define p:bithoven/e
+  (delay
+    (vector/e
+     (dep/e
+      #:one-way? #f
+      #:flat? #t
+      #:f-range-finite? #t
+      time-sig/e
+      (λ (ts)
+        (dep/e
+         #:one-way? #f
+         #:flat? #t
+         #:f-range-finite? #t
+         (accent-pattern/e ts)
+         (λ (ap)
+           (dep/e
+            #:one-way? #f
+            #:flat? #t
+            #:f-range-finite? #t
+            (cons/e form/e chord-progression/e)
+            (λ (f*cp)
+              (match-define (cons f cp) f*cp)
+              (define cp-s (progression-seq cp))
+              (define measures-per-part
+                (*
+                 ;; Every chord has to get one pulse at least (thus division) and
+                 ;; we need a balance of measures (thus ceiling)
+                 (let ()
+                   (ceiling
+                    (/ (length cp-s)
+                       (accent-pattern-pulses-per-measure ap))))
+                 ;; If a form is long, then don't make each part long
+                 (let ()
+                   (define pat-length (length (form-pattern f)))
+                   (cond
+                     [(< pat-length 3) 4]
+                     [(< pat-length 5) 2]
+                     [else 1]))))
+              (define/memo (this-kind-of-part/e len)
+                (part/e ts ap cp measures-per-part len))
+              (traverse/e
+               (λ (p) (this-kind-of-part/e (cdr p)))
+               (form-part-lens f))))))))
+     bass-notes/e)))
 
 (provide bithoven->composition
-         bithoven/e)
+         p:bithoven/e)

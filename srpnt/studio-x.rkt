@@ -2,6 +2,7 @@
 (require racket/match
          racket/format
          racket/port
+         racket/promise
          data/enumerate
          data/enumerate/lib
          charterm
@@ -70,8 +71,9 @@
          (define (word-tick w)
            (match w
              [(studio si _ #f _ _ _)
-              (define ci (random-index bithoven/e))
-              (define c (bithoven->composition (from-nat bithoven/e ci)))
+              (define b/e (force p:bithoven/e))
+              (define ci (random-index b/e))
+              (define c (bithoven->composition (from-nat b/e ci)))
               (studio si ci c #f #f #f)]
              [(studio si ci c _ #f _)
               (define n/e (make-nestration/e #:style (list-ref styles si) c))
