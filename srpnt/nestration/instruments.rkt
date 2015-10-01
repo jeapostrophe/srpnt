@@ -283,7 +283,7 @@
    beat:alternating-on
    beat:straight-rock
    beat:duple-triplets
-   beat:double-time
+   #;beat:double-time
    beat:funk-beat
    beat:heavy-metal))
 

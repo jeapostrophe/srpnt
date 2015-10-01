@@ -391,6 +391,8 @@
               (match-define (cons f cp) f*cp)
               (define cp-s (progression-seq cp))
               (define measures-per-part
+                (length cp-s)
+                #;
                 (*
                  ;; Every chord has to get one pulse at least (thus division) and
                  ;; we need a balance of measures (thus ceiling)
@@ -405,6 +407,7 @@
                      [(< pat-length 3) 4]
                      [(< pat-length 5) 2]
                      [else 1]))))
+              (printf "mpp = ~v\n" measures-per-part)
               (define/memo (this-kind-of-part/e len)
                 (part/e ts ap cp measures-per-part len))
               (traverse/e

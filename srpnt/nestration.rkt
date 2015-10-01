@@ -81,7 +81,8 @@
   (vector/e tone-names/e scales/e tempo/e
             pulse1/e pulse2/e triangle1/e triangle2/e drums/e
             mhtb/e
-            (fin/e 2 3) (fin/e 1 2) (fin/e 0 2) (fin/e 1 2)
+            (fin/e 2) (fin/e 1) (fin/e 1) (fin/e 1)
+            ;; (fin/e 2 3) (fin/e 1 2) (fin/e 0 2) (fin/e 1 2)
             (hash-traverse/e
              #:get-contract (λ (x) (listof (listof (cons/c real? boolean?))))
              (λ (_) (drum-measure/e ts ap))
