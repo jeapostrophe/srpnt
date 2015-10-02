@@ -76,16 +76,15 @@
 (define audio
   (or (use-bithoven
        #:style
-       
+       #;
        (struct-copy style style:classic
                     [tempo/e (fin/e 160)])
-       #;
        (struct-copy style style:classic
                     [scales/e (fin/e scale-diatonic-major
                                      scale-natural-minor
                                      scale-melodic-minor
                                      scale-harmonic-minor)]
-                    [tempo/e (range/e 130 200)])
+                    [tempo/e (range/e 130 180)])
        #;
        (struct-copy style style:classic
                     [scales/e (fin/e scale-harmonic-minor)]

@@ -8,7 +8,8 @@
          srpnt/music-theory
          math/base
          data/enumerate
-         data/enumerate/lib)
+         data/enumerate/lib
+         srpnt/enumerate-lib)
 (module+ test
   (require rackunit))
 
@@ -27,7 +28,7 @@
 (define time-sig/ts:4:4 (time-sig "4/4" ts:4:4))
 (define time-sig/ts:3:4 (time-sig "3/4" ts:3:4))
 (define time-sig/e
-  (fin/e time-sig/ts:4:4))
+  (old-fin/e time-sig/ts:4:4))
 
 ;; FIXME #t means "accented" and "can be the start of a chord change",
 ;; but the second thing isn't correctly used
@@ -36,14 +37,14 @@
 (define time-sig->accents
   (hash
    time-sig/ts:4:4
-   (list (accent-pattern "standard"  1 '(#t #f #f #f))
+   (list #;(accent-pattern "standard"  1 '(#t #f #f #f))
          (accent-pattern "on-beats"  2 '(#t #f #t #f))
-         (accent-pattern "off-beats" 2 '(#f #t #f #t)))
+         #;(accent-pattern "off-beats" 2 '(#f #t #f #t)))
    time-sig/ts:3:4
    (list (accent-pattern "waltz"  1 '(#t #f #f)))))
 
 (define (accent-pattern/e ts)
-  (apply fin/e (hash-ref time-sig->accents ts)))
+  (apply old-fin/e (hash-ref time-sig->accents ts)))
 
 (define (accent-pattern-notes-per-pulse ap)
   (match-define (accent-pattern _ ppm as) ap)
@@ -52,13 +53,15 @@
 ;; part-lens is in 4 measures
 (struct form (name part-lens pattern) #:transparent)
 (define form/e
-  (fin/e
+  (old-fin/e
    (form "strophic"
          '((A . 1))
          '(A))
+   #;
    (form "medley"
          '((A . 1) (B . 1) (C . 1) (D . 1))
          '(A B C D))
+   #;
    (form "double medley"
          '((A . 1) (B . 1) (C . 1) (D . 1))
          '(A A B B C C D D))
@@ -74,7 +77,7 @@
    (form "repeated ternary"
          '((A . 1) (B . 1))
          '(A A B A))
-   (form "asym rondo"
+   #;(form "asym rondo"
          '((A . 1) (B . 1) (C . 1) (D . 1) (E . 1))
          '(A B A C A D A E A))
    (form "sym rondo"
@@ -83,9 +86,10 @@
    (form "arch"
          '((A . 1) (B . 1) (C . 1))
          '(A B C B A))
-   (form "typical pop"
+   #;(form "typical pop"
          '((I . 1) (V . 1) (C . 1) (M8 . 2) (O . 1))
          '(I V C V C M8 C C O))
+   #;
    (form "32-bar"
          '((A . 2) (B . 2))
          '(A A B A))
@@ -100,13 +104,28 @@
          '(A B A B C B A B))
    (form "ABABCABCAB"
          '((A . 1) (B . 1) (C . 1))
-         '(A B A B C A B C A B))))
+         '(A B A B C A B C A B))
+   (form "ABAC"
+         '((A . 1) (B . 1) (C . 1))
+         '(A B A C))))
+
+(module+ test
+  (require racket/pretty)
+  (define name->count (make-hash))
+  (enum-count form/e)
+  (for ([i (in-range 1000)])
+    (hash-update! name->count
+                  (form-name (from-nat form/e (random-index form/e)))
+                  add1
+                  0))
+  (pretty-print name->count)
+  (exit 1))
 
 (struct progression (seq) #:transparent)
 
 ;; From https://en.wikipedia.org/wiki/Chord_progression
 (define chord-progression/e
-  (fin/e
+  (old-fin/e
    ;; three chord
    (progression '(0 3 4 4))
    (progression '(0 0 3 4))
@@ -119,24 +138,24 @@
    (progression '(0 2 4 3))
    (progression '(0 3 4 2))
    (progression '(0 1 4))
-   (progression '(1 4 0))
+   #;(progression '(1 4 0))
    ;; 50s
    (progression '(0 3 4))
    (progression '(0 5 3 4))
    ;; circle
-   (progression '(5 1 4 0))
+   #;(progression '(5 1 4 0))
    (progression '(0 4 0))
    (progression '(0 3 4 0))
    (progression '(0 5 1 4))
    ;; harmonizing
-   (progression '(0 1 2 3 4))
-   (progression '(0 1 0 3 4))
+   #;(progression '(0 1 2 3 4))
+   #;(progression '(0 1 0 3 4))
    ;; andalusian
    (progression '(0 6 5 4))
    (progression '(0 2 3 5))))
 
 (define bass-notes/e
-  (fin/e (list 0 3 4)))
+  (old-fin/e (list 0 3 4)))
 
 (define (chord-pulses/e pulse-count chord-count)
   (list-of-length-n-summing-to-k-with-no-zeros/e chord-count pulse-count))
@@ -180,12 +199,14 @@
             n k (enum-count e))))
 
 (define chord-kinds
-  (vector chord-triad chord-seventh chord-sixth))
+  (vector chord-triad #;#;chord-seventh chord-sixth))
+(define chord-kinds-meta
+  (vector 'triad #;#;'seventh 'sixth))
 (define chord-kind/e
   (below/e (vector-length chord-kinds)))
 
 (define tones/e
-  (vector/e chord-kind/e (below/e 4) (below/e 4) (below/e 4) (below/e 4)))
+  (vector/e chord-kind/e (below/e 3) (below/e 3) (below/e 3) (below/e 3)))
 
 (define (note/e beat-unit len)
   (cons/e (single/e (* len beat-unit)) tones/e))
@@ -331,16 +352,19 @@
           (for/list ([chord (in-list cp-s)]
                      [rhythm (in-list chord-rhythm)])
             (for/list ([r-info (in-list (filter cons? (append* rhythm)))])
-              (match-define (cons r (vector chord-kind-idx melody-idx harmony-idx
-                                            tenor-idx bass-idx))
+              (match-define (cons r (vector chord-kind-idx melody-idx
+                                            harmony-idx tenor-idx bass-idx))
                 r-info)
               (define chord-kind (vector-ref chord-kinds chord-kind-idx))
+              (define chord-kind-meta (vector-ref chord-kinds-meta chord-kind-idx))
               (define tones (chord-kind (mode scale chord)))
               (define melody (list-mref tones melody-idx))
               (define harmony (list-mref tones harmony-idx))              
               (define tenor (list-mref tones tenor-idx))
               (define bass (list-mref tones bass-idx))
-              (vector r (list melody harmony tenor bass)))))))
+              (vector r
+                      (cons (list melody harmony tenor bass)
+                            (vector chord-kind-meta chord))))))))
       (values label
               chord-track)))
   (vector (time-sig-ts ts) (accent-pattern-accents ap) (form-pattern f) parts))
@@ -407,7 +431,6 @@
                      [(< pat-length 3) 4]
                      [(< pat-length 5) 2]
                      [else 1]))))
-              (printf "mpp = ~v\n" measures-per-part)
               (define/memo (this-kind-of-part/e len)
                 (part/e ts ap cp measures-per-part len))
               (traverse/e

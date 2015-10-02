@@ -22,7 +22,7 @@
              [rest?s (in-list rest?ss)])
     (for/list ([n (in-list ns)]
                [rest? (in-list rest?s)])
-      (match-define (list* note tones more) n)
+      (match-define (list* note (cons tones _) more) n)
       (list* note (force-lazy-scale/tones scale rest? tones) more))))
 
 ;; xxx new interface: submit composition, arrangement, and

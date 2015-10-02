@@ -4,11 +4,12 @@
          racket/contract
          racket/fixnum
          data/enumerate/lib
+         srpnt/enumerate-lib
          srpnt/music-theory
          srpnt/nestration/instruments)
 
 (define tone-names/e
-  (apply fin/e tone-names))
+  (apply old-fin/e tone-names))
 
 (define scales/e (apply fin/e scales))
 (define tempo/e (range/e 40 500))
@@ -16,9 +17,9 @@
 (define rest-n/e
   (fin/e #f 4 5 6 7 8 9 10 11 12 13 14 15 16))
 
-(define pulse/e (apply fin/e is:pulses))
-(define triangle/e (apply fin/e is:triangles))
-(define drums/e (apply fin/e is:drums))
+(define pulse/e (apply old-fin/e is:pulses))
+(define triangle/e (apply old-fin/e is:triangles))
+(define drums/e (apply old-fin/e is:drums))
 
 (define mhtb/e
   (permutations-of-n/e 4))
@@ -26,10 +27,10 @@
 (define (drum-measure/e ts ap)
   (cond
    [(eq? ts ts:4:4)
-    (apply fin/e
+    (apply old-fin/e
            beats:4/4)]
    [(eq? ts ts:3:4)
-    (apply fin/e
+    (apply old-fin/e
            beats:3/4)]))
 
 (struct style
@@ -46,20 +47,20 @@
 (define-styles styles
   [style:classic
    "Classic"
-   tone-names/e (fin/e scale-diatonic-major) (range/e 160 300)
-   (apply fin/e is:pulses-classic)
-   (apply fin/e is:pulses-classic)
-   (fin/e i:triangle:basic i:triangle:plucky)
-   (fin/e i:triangle:basic i:triangle:plucky)
-   (fin/e i:drums:basic)
-   (fin/e (list 0 1 2 3))]
+   tone-names/e (old-fin/e scale-diatonic-major) (range/e 160 300)
+   (apply old-fin/e is:pulses-classic)
+   (apply old-fin/e is:pulses-classic)
+   (old-fin/e i:triangle:basic i:triangle:plucky)
+   (old-fin/e i:triangle:basic i:triangle:plucky)
+   (old-fin/e i:drums:basic)
+   (old-fin/e (list 0 1 2 3))]
   [style:happy
    "Happy"
-   tone-names/e (fin/e scale-diatonic-major) (fin/e 200)
+   tone-names/e (old-fin/e scale-diatonic-major) (fin/e 200)
    pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e]
   [style:sad
    "Sad"
-   tone-names/e (fin/e scale-harmonic-minor) (fin/e 120)
+   tone-names/e (old-fin/e scale-harmonic-minor) (fin/e 120)
    pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e]
   [style:all
    "ALL"
