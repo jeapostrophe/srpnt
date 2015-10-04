@@ -5,6 +5,16 @@ srpnt - synthesized, random pulse, noise, and triangle (wip)
 There's a lot left to do before I can fully integrate into Get Bonus,
 but I'm pushing for now because of the RacketCon talk.
 
+Run
+
+racket -t srpnt/studio.rkt -- srpnt/dev.rkt
+
+Then open up srpnt/dev.rkt and change the "audio" binding to
+experiment with different things. You can also make new instruments in
+srpnt/nestration/instruments.rkt and test them out in dev.rkt. You
+probably will also want to look at srpnt/nestration.rkt for the
+definition of "styles".
+
 --
 
 Samples are expected to be 1-channel, unsigned 8-byte PCM data. You
