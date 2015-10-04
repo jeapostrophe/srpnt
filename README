@@ -2,6 +2,11 @@ srpnt - synthesized, random pulse, noise, and triangle (wip)
 
 --
 
+There's a lot left to do before I can fully integrate into Get Bonus,
+but I'm pushing for now because of the RacketCon talk.
+
+--
+
 Samples are expected to be 1-channel, unsigned 8-byte PCM data. You
 can create that format from an arbitrary input with ffmpeg:
 
