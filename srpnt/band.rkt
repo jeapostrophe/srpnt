@@ -18,6 +18,8 @@
            (cons tone (fx+ t-oct s-oct))]))))
 
 (define (force-lazy-scale/measures scale rest?ss ms)
+  (local-require racket/pretty)
+  (printf "FLS/m:\n") (pretty-print ms)
   (for/list ([ns (in-list ms)]
              [rest?s (in-list rest?ss)])
     (for/list ([n (in-list ns)]

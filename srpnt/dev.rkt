@@ -49,7 +49,7 @@
                            (- how-many-notes-in-scale
                               (- updown-off how-many-notes-in-scale))))
                      `(0.25
-                       ((,off . 0) (,off . 0) (,off . 0) (,off . 0))
+                       (((,off . 0) (,off . 0) (,off . 0) (,off . 0)) . #f)
                        . #f)))))
         (vector 'C the-scale 120
                 pulse1 pulse2 triangle1 triangle2 drums
@@ -74,57 +74,63 @@
 ;; 16947999029795477887876025486712914
 
 (define audio
-  (or (use-bithoven
-       #:style
-       #;
-       (struct-copy style style:classic
-                    [tempo/e (fin/e 160)])
-       (struct-copy style style:classic
-                    [scales/e (fin/e scale-diatonic-major
-                                     scale-natural-minor
-                                     scale-melodic-minor
-                                     scale-harmonic-minor)]
-                    [tempo/e (range/e 130 180)])
-       #;
-       (struct-copy style style:classic
-                    [scales/e (fin/e scale-harmonic-minor)]
-                    [tempo/e (fin/e 120)])
-       #f #f)
+  (or
 
-      (test-drum-beat beat:funk-beat)
+   (test-drum-beat beat:heavy-metal)
 
-      (test-drums i:drums:basic)
+   (test-pulse (i:pulse:plucky 2))
 
-      (test-pulse (i:pulse:plucky 2))
-      
-      
-      (test-drum-beat beat:heavy-metal)
+   (use-bithoven
+    #:style
+    #;
+    (struct-copy style style:classic
+                 [tempo/e (fin/e 160)])
+    (struct-copy style style:classic
+                 [scales/e (fin/e scale-diatonic-major
+                                  scale-natural-minor
+                                  scale-melodic-minor
+                                  scale-harmonic-minor)]
+                 [tempo/e (range/e 130 180)])
+    #;
+    (struct-copy style style:classic
+                 [scales/e (fin/e scale-harmonic-minor)]
+                 [tempo/e (fin/e 120)])
+    #f #f)
 
-      (test-pulse (i:pulse:plucky 2))
-      (test-pulse (i:pulse:natural 2))
-      (test-pulse (i:pulse:basic 2))
-     
-      (use-rand-bithoven)
 
-      (test-drums 
-       (vector i:drum:hihat
-               i:drum:bass
-               i:drum:snare))
+   (test-drum-beat beat:funk-beat)
 
-      
-      (test-triangle i:triangle:basic)
-      
-      (test-pulse (i:pulse:vibrato 5.0 2))
-      (test-pulse (i:pulse:tremolo 120.0 2))      
-        
-      (test-pulse (i:pulse:natural 2))
-      (test-pulse (i:pulse:plucky 2))
-      (test-pulse (i:pulse:vibrato 5.0 2))
-      (test-pulse (i:pulse:tremolo 120.0 2))
-      (test-triangle (i:triangle:vibrato 6.5)) 
-      (test-triangle (i:triangle:tremoloish 120.0)) 
-      (test-triangle i:triangle:plucky)
-      (test-triangle i:triangle:basic)))
+   (test-drums i:drums:basic)
+
+
+
+
+
+   (test-pulse (i:pulse:plucky 2))
+   (test-pulse (i:pulse:natural 2))
+   (test-pulse (i:pulse:basic 2))
+
+   (use-rand-bithoven)
+
+   (test-drums
+    (vector i:drum:hihat
+            i:drum:bass
+            i:drum:snare))
+
+
+   (test-triangle i:triangle:basic)
+
+   (test-pulse (i:pulse:vibrato 5.0 2))
+   (test-pulse (i:pulse:tremolo 120.0 2))
+
+   (test-pulse (i:pulse:natural 2))
+   (test-pulse (i:pulse:plucky 2))
+   (test-pulse (i:pulse:vibrato 5.0 2))
+   (test-pulse (i:pulse:tremolo 120.0 2))
+   (test-triangle (i:triangle:vibrato 6.5))
+   (test-triangle (i:triangle:tremoloish 120.0))
+   (test-triangle i:triangle:plucky)
+   (test-triangle i:triangle:basic)))
 
 (provide audio)
 
