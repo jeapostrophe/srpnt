@@ -76,14 +76,11 @@
 (define audio
   (or
 
-   (test-drum-beat beat:heavy-metal)
-
-   (test-pulse (i:pulse:plucky 2))
-
+   
    (use-bithoven
     #:style
-    #;
-    (struct-copy style style:classic
+    #;style:sad
+    #;(struct-copy style style:classic
                  [tempo/e (fin/e 160)])
     (struct-copy style style:classic
                  [scales/e (fin/e scale-diatonic-major
@@ -91,12 +88,18 @@
                                   scale-melodic-minor
                                   scale-harmonic-minor)]
                  [tempo/e (range/e 130 180)])
-    #;
-    (struct-copy style style:classic
+    
+    #;(struct-copy style style:classic
                  [scales/e (fin/e scale-harmonic-minor)]
                  [tempo/e (fin/e 120)])
     #f #f)
 
+   (test-pulse (i:pulse:plucky 2))
+   
+
+   
+   
+   (test-drum-beat beat:heavy-metal)
 
    (test-drum-beat beat:funk-beat)
 

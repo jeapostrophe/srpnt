@@ -54,3 +54,6 @@
 
 (provide pulse-tone->period
          triangle-tone->period)
+
+(module+ test
+  TRIANGLE)

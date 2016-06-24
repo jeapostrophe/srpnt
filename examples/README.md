@@ -1,3 +1,5 @@
+These will be added shortly. Please email me if you need them ASAP.
+
 XXX Sample channel example
 
 XXX Noise channel example

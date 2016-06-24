@@ -57,7 +57,7 @@
   [style:happy
    "Happy"
    tone-names/e (old-fin/e scale-diatonic-major) (fin/e 200)
-   pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e]
+   pulse/e pulse/e triangle/e triangle/e drums/e (old-fin/e (list 0 1 2 3))]
   [style:sad
    "Sad"
    tone-names/e (old-fin/e scale-harmonic-minor) (fin/e 120)

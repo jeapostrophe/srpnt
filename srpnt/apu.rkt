@@ -71,6 +71,10 @@
           0))
     (values out next-%)))
 
+(module+ test
+  (pulse-period->freq 0)
+  (pulse-period->freq (- (expt 2 11) 1)))
+
 ;; The triangle goes through a fixed amplitude pattern (it has no
 ;; volume control). We implement this by multiplying the cycle
 ;; percentage by the width of the pattern, thus getting the sample of
@@ -88,6 +92,10 @@
           (bytes-ref TRIANGLE-PATTERN %-as-step)
           0))
     (values out next-%)))
+
+(module+ test
+  (triangle-period->freq 0)
+  (triangle-period->freq (- (expt 2 11) 1)))
 
 ;; The noise channel is a 15-bit linear feedback shift register that
 ;; is initialized to 1. Every cycle the PRNG steps. The period is a
