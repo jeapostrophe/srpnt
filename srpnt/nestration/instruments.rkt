@@ -115,6 +115,15 @@
 ;; 9 is crunchy
 ;; 7 and C are okay
 
+(define i:drum:noise
+  (i:drum/spec #:mode (spec:constant #f)
+               #:period (spec:constant #xC)
+               #:volume (spec:constant 7)))
+(define i:drum:noise:metal
+  (i:drum/spec #:mode (spec:constant #t)
+               #:period (spec:constant #xC)
+               #:volume (spec:constant 7)))
+
 (define hihat-adsr
   (spec:adsr 'release
              1 (spec:constant 4)

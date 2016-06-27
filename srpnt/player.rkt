@@ -19,8 +19,9 @@
 (define (playing-mixer)
   (mixer:standard (speaker:real)))
 
-(define (play-one! init-c)
-  (define m (playing-mixer))
+(define (play-one! init-c #:mixer [make-m playing-mixer])
+  (define the-make-m (or make-m playing-mixer))
+  (define m (the-make-m))
   (play-to! m init-c)
   (mixer-close! m))
 

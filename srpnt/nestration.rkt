@@ -64,7 +64,8 @@
    pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e]
   [style:all
    "ALL"
-   tone-names/e scales/e tempo/e pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e])
+   tone-names/e scales/e tempo/e pulse/e pulse/e triangle/e triangle/e drums/e
+   (old-fin/e (list 0 1 2 3))])
 
 (define (make-nestration/e
          #:style [style style:all]

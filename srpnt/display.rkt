@@ -151,4 +151,4 @@
    ["--play" "play it as well" (set! play? #t)]
    ["-n" n "composition number" (set! the-n n)]
    #:args (output-path)
-   (maybe-play play? (display-bithoven the-n output-path))))
+   (maybe-play play? (display-bithoven (string->number the-n) output-path))))
