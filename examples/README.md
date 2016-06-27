@@ -12,7 +12,7 @@ I recommend listening to the examples in this order. All files are
 produced by srpnt in raw 8-bit audio form and then converted to AAC
 with ffmpeg.
 
-= Basic Waveforms
+# Basic Waveforms
 
 The RP2A03 has four basic channels: pulse, triangle, noise, and
 sample. The sample channel is not included in these examples.
@@ -21,7 +21,7 @@ The first channel is the pulse wave. It has volume control and a
 duty cycle parameter for the width of the rectangle. Each of the
 following examples are a C scale with different duty cycles.
 
-* [basic-pulse-1.m4a] -- This is a 1/8 width.
+* [This is a 1/8 width.](basic-pulse-1.m4a)
 * [basic-pulse-2.m4a] -- This is a 1/4 width.
 * [basic-pulse-3.m4a] -- This is a 1/2 width.
 * [basic-pulse-4.m4a] -- This is a 3/4 width (notice that it sounds the
@@ -38,7 +38,7 @@ setting that creates a metallic sounding wave.
 * [basic-noise-normal.m4a] -- Normal mode
 * [basic-noise-metal.m4a] -- "Metal" mode
 
-= Instruments
+# Instruments
 
 We have a small DSL for describing different instruments. Below are
 some samples of the different instruments we've implemented.
@@ -66,7 +66,7 @@ different refresh frequencies. We use it to build a drum kit.
 * [noise-bass.m4a] -- A bass drum
 * [noise-snare.m4a] -- A snare drum
 
-= Musical Patterns
+# Musical Patterns
 
 The examples above include scales for the harmonic instruments, which
 are derived algorithmically through a simple model of music theory.
@@ -77,7 +77,7 @@ We have a tiny DSL for writing down drum measures, as well.
 * [drums-double-time.m4a] -- A "double time" beat
 * [drums-heavy-metal.m4a] -- A heavy metal beat
 
-= Bithoven
+# Bithoven
 
 The most exciting part of srpnt is the Bithoven composer. We include a
 number of samples with explanations for each.
