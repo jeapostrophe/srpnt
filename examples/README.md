@@ -12,7 +12,7 @@ I recommend listening to the examples in this order. All files are
 produced by srpnt in raw 8-bit audio form and then converted to AAC
 with ffmpeg.
 
-Basic Waveforms
+# Basic Waveforms
 
 The RP2A03 has four basic channels: pulse, triangle, noise, and
 sample. The sample channel is not included in these examples.
