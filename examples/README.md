@@ -12,6 +12,8 @@ I recommend listening to the examples in this order. All files are
 produced by srpnt in raw 8-bit audio form and then converted to AAC
 with ffmpeg. Every track is also on the following SoundCloud playlist:
 
+# Play in your browser
+
 [Bithoven and SRPNT](https://soundcloud.com/jeapostrophe/sets/bithoven-and-srpnt-1)
 
 # Basic Waveforms
