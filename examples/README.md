@@ -10,9 +10,11 @@ and moving a different `audio` definition to the top of the `or` form.
 
 I recommend listening to the examples in this order. All files are
 produced by srpnt in raw 8-bit audio form and then converted to AAC
-with ffmpeg. Every track is also on the following SoundCloud playlist:
+with ffmpeg. 
 
 # Play in your browser
+
+Every sample is on the following SoundCloud playlist:
 
 [Bithoven and SRPNT](https://soundcloud.com/jeapostrophe/sets/bithoven-and-srpnt-1)
 
