@@ -1,4 +1,4 @@
-#lang scribble/sigplan @preprint @nocopyright
+#lang scribble/sigplan
 @(require racket/list
           racket/format
           (for-label racket/base
@@ -7,16 +7,71 @@
                      racket/flonum
                      data/enumerate)
           scribble/manual
+          scribble/core
+          scribble/latex-properties
           scriblib/figure
           scriblib/footnote
           scriblib/autobib)
 
 @(define-cite ~cite citet generate-bibliography)
 
+@(begin
+   (define bib:rp2a03
+     (make-bib #:title "2A03 Technical Reference"
+               #:author "Brad Taylor"
+               #:url "http://nesdev.com/2A03%20technical%20reference.txt"
+               #:date 2004))
+   (define bib:frp
+     (make-bib #:title "Functional Reactive Animation"
+               #:author (authors "Conal Elliott" "Paul Hudak")
+               #:location (proceedings-location "International Conference on Functional Programming")
+               #:date 1997))
+   (define bib:adsr
+     (make-bib #:title "Analog Days: The Invention and Impact of the Moog Synthesizer"
+               #:author (authors "Trevor Pinch" "Frank Trocco")
+               #:date 2004
+               #:is-book? #t
+               #:location "Harvard University Press"))
+   (define bib:music-theory
+     (make-bib #:title "Music Theory for Computer Musicians."
+               #:author "Michael Hewitt"
+               #:date 2008
+               #:is-book? #t))
+   (define bib:lilypond
+     (make-bib #:author (authors "Han Wen Nienhuys" "Jan Nieuwenhuizen")
+               #:title "LilyPond, a system for automated music engraving"
+               #:date 2003
+               #:location (proceedings-location "Colloquium on Musical Informatics")))
+   (define bib:data-enumerate
+     (make-bib #:title "Fair Enumeration Combinators"
+               #:author (authors "Max New" "Burke Fetscher"
+                                 "Jay McCarthy" "Robby Findler")
+               #:location "Unpublished"
+               #:date 2016))
+   (define bib:euterpea
+     (make-bib #:title "Euterpea - A Haskell library for music creation"
+               #:author (authors "Paul Hudak" "Eric Cheng" "Hai (Paul) Liu"
+                                 "Donya Quick" "Dan Winograd-Cort")
+               #:date 2016))
+   (define bib:hsom
+     (make-bib #:title "The Haskell School of Music"
+               #:author "Paul Hudak"
+               #:date 2015
+               #:location "(Version 2.6)")))
+
 @(define (example . _) "")
 
-@title{Bithoven @subtitle{Gödel Encoding of Chamber Music and Functional 8-Bit Audio Synthesis}}
+@(define extra-tex-code
+   (bytes-append #;
+   #"\\usepackage{siunitx}\n"))
+
+@title[#:style (style #f (list (tex-addition extra-tex-code)))]{Bithoven @subtitle{Gödel Encoding of Chamber Music and Functional 8-Bit Audio Synthesis}}
 @authorinfo["Jay McCarthy" "University of Massachusetts Lowell" "jay@racket-lang.org"]
+
+@category["H.5.5" "Sound and Music Computing" "Methodologies and techniques"]
+@keywords{Audio Synthesis, Computer Music, NES Emulation}
+
+@to-appear{}
 
 @(define (comma x)
    (define (clip-head-if c l)
@@ -35,9 +90,16 @@
                    (list #\space #\,)
                    empty))))))))
 
+@(define (raw-latex . args)
+   (element (style "relax" '(exact-chars))
+            args))
+
 @(define (pn x)
-   (~r (string->number x)
-       #:notation 'exponential))
+   (raw-latex
+    (format "$~a$"
+            (~r (string->number x)
+                #:notation 'exponential
+                #:format-exponent (λ (e) (format "\\times 10^{~a}" e))))))
 
 @(define COUNT-COMPS @pn{107936338584579028906476999435802819420152571696145967835629469168256054600102650823583510099033608338153987460306459613902701999676787394921157801398029216877779737562970220998606832732608453952094357479307728375868180711548797277461020672})
 @(define COUNT-ARRANGE @pn{422234004059019268090786172918417043456000})
@@ -71,8 +133,8 @@ hardware in their live performances.
 
 In this paper, we discuss the design and implementation of
 @emph{Bithoven}, an algorithmic choral composer, and SRPNT, an audio
-synthesizer that inspired by the Ricoh RP2A03, which was the audio
-processing unit used in the 1985 Nintendo Entertainment
+synthesizer that was inspired by the Ricoh RP2A03, which was the audio
+processing unit (APU) used in the 1985 Nintendo Entertainment
 System (NES). SRPNT is purely functional synthesis that uses a series
 of DSLs to define and play 8-bit music. Bithoven is an enumeration of
 all choral music obeying certain basic principles of melody and
@@ -90,8 +152,9 @@ some essential of music theory. @Secref["sec:tracker"] describes a DSL
 for music tracking. @Secref["sec:godel"] reviews the theory of Gödel
 encoding. @Secref["sec:band"] describes our datatype for
 arrangements. @Secref["sec:bithoven"] finalizes the presentation with
-our datatype for compositions. Finally, we conclude in
-@secref["sec:conclusion"].
+our datatype for compositions. In @secref["sec:pragmatics"], we
+discuss some usage pragmatics. @Secref["sec:related"] summarizes some
+related work and we conclude in @secref["sec:conclusion"].
 
 The Racket source code for the system is available online at
 @url{https://github.com/jeapostrophe/srpnt}. Furthermore, the
@@ -103,27 +166,27 @@ get an idea of what Bithoven produces.
 
 Hardware audio synthesis is based on the understanding of sound as a
 mechanical wave of pressure and early synthesizers could only generate
-particular primitive waveforms from a small set of templates. The
-Ricoh RP2A03 is typical in this way. It can generate five discrete
-audio waveforms: two pulse waves, one triangle wave, one noise
-channel, and one sample channel. Each channel was independently
+particular primitive waveforms from a set of templates. The Ricoh
+RP2A03 is typical in this way. It can generate five discrete audio
+waveforms: two pulse waves, one triangle wave, one noise channel, and
+one sample channel@~cite[bib:rp2a03]. Each channel was independently
 converted into an analog signal and combined in a non-linear way into
 a single monaural channel. We discuss the abstract operation of each
-channel in order of simplicity.@note{I recommend listening to the
+channel in order of simplicity.@note{We recommend listening to the
 following examples before and after reading this section:
 @url{https://www.youtube.com/watch?v=la3coK5pq5w}.}
 
 The @deftech{sample} channel, called the DMC, outputs a 7-bit audio
 signal that is controlled via delta pulse-code modulation. The signal
-is initialized to a program controlled value after which it is adjusted
-by a stream of 1-bit delta values loaded from program memory. If a
-high bit increments the value and a low bit decrements the value. The
-signal is clamped, rather than overflowing. Due to its inability to
-vary more than a single value each audio frame, arbitrary sounds
-cannot be encoded as samples, in addition to the fidelity loses due to
-the 7-bit clamp. Nevertheless, the sample channel is useful for
-including otherwise hard to synthesis sounds, like voice samples and
-realistic drums. @example{XXX}
+is initialized to a program controlled value after which it is
+adjusted by a stream of 1-bit delta values loaded from program
+memory. A high bit increments the value and a low bit decrements the
+value. The signal is clamped, rather than overflowing. Due to its
+inability to vary more than a single value each audio frame, arbitrary
+sounds cannot be encoded as samples, in addition fidelity is lost due
+to the 7-bit clamp. Nevertheless, the sample channel is useful for
+including otherwise hard to synthesize sounds, like voice samples and
+realistic drums.
 
 The @deftech{noise} channel outputs a 4-bit audio signal that is
 controlled via a 1-bit pseudo-random number
@@ -137,7 +200,7 @@ different options; finally, it can change the feedback bit between
 bits 6 and 1, which produces a shorter period that tends to produce
 a "metallic" sound. The noise channel normally sounds like television
 static, but by quickly turning it on and off rhythmically, it can be
-used for percussion. @example{XXX}
+used for percussion.
 
 The @deftech{triangle} channel outputs a 4-bit audio signal with a
 defined pattern at a program-controlled 11-bit frequency. The signal
@@ -148,7 +211,7 @@ either on or off. The interpretation of the frequency is between
 27.3Hz (slightly lower than the lowest A). The frequency of the
 triangle is versatile, but the lack of volume control and the pulse
 channel's inability to play low notes relegates it to the bass line in
-most compositions. @example{XXX}
+most compositions.
 
 The two @deftech{pulse} channels behave identically. They output a
 4-bit audio signal at a program-controlled 11-bit frequency. The
@@ -159,13 +222,13 @@ has a single on bit, the second has two, the third has four, and the
 fourth is second inverted (thus, it sounds the same as the second.)
 The interpretation of the frequency is between 111.8kHz and 54.6Hz, so
 it cannot play the lowest octave on a standard piano. These tend to be
-used for the melody in most compositions. @example{XXX}
+used for the melody in most compositions.
 
 Nearly all of the most popular NES music uses only the programmable
 waveforms and ignore the sample channel. The key to using these
 effectively is to quickly vary the programmable parameters to simulate
-different instruments and patterns, as we discuss in
-@secref["sec:instruments"].@note{I recommend listening to a sampler of
+different instruments, as we discuss in
+@secref["sec:instruments"].@note{We recommend listening to a sampler of
 tracks, such as: @url{https://www.youtube.com/watch?v=UNA3Laa3-_Q}.}
 
 @figure["fig:pulse-wave"
@@ -209,7 +272,8 @@ Each waveform generator @racket[G] is represented via a function of
 type @racket[(-> Parameters State (values Signal State))] where
 @racket[Parameters] is a structure holding the varying parameters,
 @racket[State] holds the internal state of the generator, and
-@racket[Signal] is the output signal value.
+@racket[Signal] is the output signal value. This model is essentially
+the compiled form of a functionally reactive program@~cite[bib:frp].
 
 @Figure-ref["fig:pulse-wave"] shows the @tech{pulse} wave generator,
 @racket[pulse-wave].  There are three @racket[Parameters]: the
@@ -237,7 +301,7 @@ delivered to the underlying consumer, whether it be the operating
 system's audio interface or a recording. We fix a particular rate of
 audio generation at 60 audio frames per second. Since there are 44,100
 samples per second, this means there are 735 samples per frame. This
-fixes the smallest quanta of musical change at about 16.6
+fixes the smallest quantum of musical change at about 16.6
 milliseconds.
 
 We define a structure for each kind of wave form to hold its
@@ -286,14 +350,13 @@ gunfire for gaming applications.
 Due to these extensions, we cannot simulate an authentic RP2A03
 mixer. Instead, we simply add the seven 4-bit values to produce a
 7-bit quantity, then linearly mix it with the left or right sample
-channel to render a combined 7-bit sample. Nevertheless, the result of
-the model works well: we generate 735 such samples and then return the
-state of each waveform generator for the next @tech{synth frame}.
+channel to render a combined 7-bit sample. In summary, we generate 735
+such samples and then return the state of each waveform generator for
+the next @tech{synth frame}.
 
 Finally, the audio system is provided as function that accepts of list
-of @tech{synth frames} and produces delivers the corresponding set of
-samples to a recipient, which either immediately plays them or saves
-them.
+of @tech{synth frames} and delivers the corresponding set of samples
+to a recipient, which either immediately plays them or saves them.
 
 @section[#:tag "sec:instruments"]{Instruments}
 
@@ -310,10 +373,10 @@ In Western music, tones are given names based on their
 well as their octave (a number). For example, the right-most key on a
 standard piano is @bold{C8}, while the left-most key is
 @bold{A0}. These tones are mapped to frequencies by tuning
-conventions. Although it was not as this way, at present we define
+conventions. Although it was not always this way, at present we define
 @bold{A4} as 440Hz. This definition gives the frequency of the
-@racket[n]th key as @racket[(* (expt 2 (/ (- n 49) 12)) 440)]. From
-this, we can easily map the frequency to a period on either the
+@racket[n]th key as @racket[(* (expt 2 (/ (- n 49) 12)) 440)]Hz. From
+this, we can map the frequency to a period on either the
 @tech{pulse} wave or the @tech{triangle} wave by inverting the period
 to frequency function: @racketblock[
 (define (pulse-freq->period freq)
@@ -340,12 +403,12 @@ volume.
 We deal with timbre in the context of our system in two steps. First,
 we define the type @racket[Instrument] as a function of type
 @racket[(-> Tone Nat (listof Synth-Frames))], i.e. it accepts a tone
-to play, a number of frames to play it for, and it produces a list of
+to play, a number of frames to play it for, and it produces
 @tech{synth frames}. This representation allows higher levels of
 abstraction to simply "play an A4 on a piano-like pulse for 33ms" by
 calling the appropriate function with the arguments @racket['A4] and
-@racket[2]. Second, we define a simple FRP-like DSL for writing down
-such instruments.
+@racket[2]. Second, we define a DSL in the style of functional
+reactive programming (FRP) for writing instruments@~cite[bib:frp].
 
 @figure["fig:i:pulse"
 @elem{Pulse Instrument (from @code{srpnt/nestration/instrument})}]{
@@ -368,18 +431,18 @@ such instruments.
 ]}
 
 @Figure-ref["fig:i:pulse"] shows the constructor for @tech{pulse} wave
-instruments. The FRP-like values are called "specs", for
-specifications, and are essentially signals defined over time. The
-constructor @racket[i:pulse] receives one spec for each of the three
+instruments. The FRP-like values are called "specs" (for
+specifications) and are essentially signals defined over time. The
+constructor @racket[i:pulse] receives one spec for each of the
 parameters of the @tech{pulse} wave: the duty cycle, the period, and
 the volume. The duty cycle and volume specs are expected to evaluate
 to the actual value, while the period spec is interpreted as a delta
 from the period of the tone that is played. The body of the loop in
 the constructor does the obvious thing: it evaluates the spec for each
-frame and constructs the corresponding @tech{synth frame} member. The
-outside of the loop, however, must first "stage" the specification by
+frame and constructs the corresponding @tech{synth frame}. The outside
+of the loop, however, must first "stage" the specification by
 informing it what the total number of frames will be. We elaborate on
-why this is needed below.
+this below.
 
 We proceed by providing examples of instruments and spec
 constructors. First, consider a trivial @tech{pulse} with constant
@@ -392,7 +455,7 @@ fixed volume. @racketblock[
    #:volume (spec:constant 7)))
 ]
 This uses the constant specification, @racket[spec:constant], which
-returns the same value for every frame. @example{XXX}
+returns the same value for every frame.
 
 We can implement a @tech{pulse} with tremolo, which is a modulation of
 volume. We accept a parameter @racket[freq] for the frequency of the
@@ -400,38 +463,38 @@ modulation and replace the @racket[#:volume] argument with
 @racket[(spec:% (spec:modulate freq 7 4))]. When evaluated,
 @racket[spec:%] divides the frame by the total number of
 frames (provided during staging) to produce the percentage through the
-note. It then delivers this value to the specification given by its
+note. It then delivers this value to the spec given by its
 argument. For example, if note will be played for 10 frames, then
 @racket[spec:modulate] will be called with @racket[0.1], @racket[0.2],
 and so on until @racket[1.0]. @racket[spec:modulate] receives three
 arguments: the modulation frequency, the base value, and the width of
 the modulation. Essentially it views the percentage argument as a
-radian and evaluates the sine function at the given frequency and
-position to produce a value between @racket[-1.0] and @racket[+1.0],
-which is multiplied with the width and then added to the base. Thus, in
-this case, the volume oscillates between @racket[3] and @racket[11],
-according to the frequency. @example{XXX}
+radian and evaluates sine at the given frequency and position to
+produce a value between @racket[-1.0] and @racket[+1.0], which we
+multiply with the width and then add to the base. Thus, the volume
+oscillates between @racket[3] and @racket[11], according to the
+frequency.
 
 We can implement a basic decaying (or strengthening) signal with a
-linear interpolation after @racket[spec:%]. For example,
+linear interpolation using @racket[spec:%]. For example,
 @racket[#:volume (spec:% (spec:linear 7 0))] smoothly interpolates
-from volume @racket[7] to silence over the course of the
+from volume @racket[7] to silence over the whole
 note. @racket[spec:linear] simply multiplies the initial value by the
 remainder of the percentage and adds it to the multiplication of the
-final value and the percentage. @example{XXX}
+final value and the percentage.
 
 Finally, we can implement a traditional ADSR
-specification. ADSR (Attack-Decay-Sustain-Release) is an early theory
-of instrument synthesis going back to the Novachord and Moog
-synthesizers. It divides the synthesis of a particular note into four
-stages: the Attack, where it linearly increases; the Decay, where it
-linearly decreases; the Sustain where it is constant; and the Release,
-where it linearly decreases again. This notion can, of course, be
-generalized to arbitrary many stages and arbitrary specifications on
-each stage. For instance, the Casio CZ has 8-stages with three Delay
-slopes and two additional Attacks, one before the Sustain and one in
-the middle of the Release. The entire configuration is referred to as
-the Envelope in the synthesis literature.
+specification@~cite[bib:adsr]. ADSR (Attack-Decay-Sustain-Release) is
+an early theory of instrument synthesis going back to the Novachord
+and Moog synthesizers. It divides the synthesis of a particular note
+into four stages: the Attack, where it linearly increases; the Decay,
+where it linearly decreases; the Sustain where it is constant; and the
+Release, where it linearly decreases again. This notion can, of
+course, be generalized to arbitrary many stages and arbitrary
+specifications on each stage. For instance, the Casio CZ has 8-stages
+with three Delay slopes and two additional Attacks, one before the
+Sustain and one in the middle of the Release. The entire configuration
+is referred to as the Envelope in the synthesis literature.
 
 We define a @racket[spec:adsr] combinator that accepts one sub-spec
 argument for each stage, as well as four other arguments that define
@@ -446,7 +509,7 @@ used as percentages. For instance, if 8 frames were available, then
 each would be given 2 frames. On the other hand, if more than 16
 frames were given, then any extra frames would be allocated to the
 Release stage. This makes it so that as the length of the note
-increases, it will be trailed by more silence. @example{XXX}
+increases, it will be trailed by more silence.
 @racketblock[
 (spec:adsr
  'release
@@ -463,7 +526,7 @@ leaves the tone perfect.
 The same specification language is also used for components of the
 drum kit. For example, through intense experimentation, we have found
 configurations that resemble a hihat, bass, and snare (shown in
-@figure-ref["fig:drums"]). @example{XXX}
+@figure-ref["fig:drums"]).
 
 @figure*["fig:drums"
 @elem{Drum Instruments (from @code{srpnt/nestration/instruments})}]{
@@ -531,16 +594,17 @@ of our development: notes, tempo, time signatures, scales, and
 chords. Below, we define each of this. Of course, these definitions
 are not ours and not universally agreed upon, as the concepts of music
 theory are ancient and have considerably variability over
-time. Leaving that aside, we provide our technical definitions and
-explanations as to how they will be used later.
+time@~cite[bib:music-theory]. Leaving that aside, we provide our
+technical definitions and explanations as to how they will be used
+later.
 
 @bold{Note.} A @deftech{note} is a relative measure of time and
 therefore length of a tone. We define notes as non-positive powers of
 two. For example, a half-note is twice as long as a quarter-note and
 half as long as whole note. Traditional music admits other notes, but
-we do not consider them. A note is simply a relative measure and not
-an absolute measure, because it depends on a @tech{tempo} to
-concretize it.
+we do not consider them. A note is a relative measure and not an
+absolute measure, because it depends on a @tech{tempo} to concretize
+it.
 
 @bold{Tempo.} A @deftech{tempo}, or @deftech{metronome}, is a pair of
 a note, called the @deftech{beat unit}, and the number of beats per
@@ -553,7 +617,7 @@ note lasts 60 frames. The following function does this:
 (define (frames-in-note me note)
   (match-define
     (cons beat-unit beats-per-minute)
-    me)
+    me)  
   (define beats-per-second
     (/ beats-per-minute 60.0))
   (define beats-per-frame
@@ -596,7 +660,7 @@ than the @bold{D#} adjacent to the first @bold{E}).
 A @deftech{fixed scale} is a sequence of @tech{tones}. A
 @tech{detached scale} can be transformed into a @tech{fixed scale} by
 providing an initial octave and applying each octave
-offset. @example{XXX}
+offset.
 
 An @deftech{abstract scale} is a function from a @tech{pitch}, called
 the @deftech{key}, to a @tech{detached scale}. Abstract scales are
@@ -634,9 +698,6 @@ triad where @racket[n] is @racket[0].
 
 Bithoven (@secref["sec:bithoven"]) selects tones from chords of scale
 of abstract tones.
-
-@bold{Summary.} We will refer back to each of these concepts in
-subsequent sections.
 
 @section[#:tag "sec:tracker"]{Music Tracker}
 
@@ -687,10 +748,10 @@ and @racket[#:instruments] values to compute the synth frames for one
 note, as determined by @racket[#:me].
 
 This function imposes some heavy constraints on the music: for
-example, there are no instrument changes mid-song and there are tempo
-changes. It would be easy to change all of these things, but this DSL
-is primarily designed for Bithoven to target and it is difficult to
-change Bithoven to produce such things.
+example, there are no instrument changes mid-song and there are no
+tempo changes. It would be easy to change all of these things, but
+this DSL is primarily designed for Bithoven to target and it is
+difficult to change Bithoven to produce such things.
 
 @figure["fig:measures"
 @elem{An example track playing the diatonic @bold{C} major scale}]{
@@ -723,7 +784,7 @@ change Bithoven to produce such things.
 ]}
 
 In addition to producing the @tech{synth frames}, the track can also
-produce sheet music using Lilypond. @example{XXX}
+produce sheet music using Lilypond@~cite[bib:lilypond].
 
 @section[#:tag "sec:godel"]{Gödel Encoding}
 
@@ -736,13 +797,14 @@ a prefix of the natural numbers.
 
 @(require data/enumerate data/enumerate/lib)
 
-We use Racket's @racketmodname[data/enumerate] module for this. It
-provides combinators (suffixed with @racket[/e]) that construct
-bijections. For example, @racket[string/e] is a bijection between the
-naturals and strings. It forms a @racket[to-nat] function which
-projects a string into a natural. For example, @racket[(to-nat
-string/e "Bithoven")] is @(number->string (to-nat
-string/e "Bithoven")). It provides a @racket[from-nat] function as
+We use Racket's @racketmodname[data/enumerate] module for
+this@~cite[bib:data-enumerate]. It provides combinators (suffixed with
+@racket[/e]) that construct bijections. For example, @racket[string/e]
+is a bijection between the naturals and strings. It forms a
+@racket[to-nat] function which projects a string into a natural. For
+example, @racket[(to-nat string/e "Bithoven")] is
+@(smaller (smaller (smaller (number->string (to-nat
+string/e "Bithoven"))))). It provides a @racket[from-nat] function as
 well which projects a natural into a string. For example,
 @racket[(from-nat string/e 42)] is @(format "~v" (from-nat string/e
 42)). @racket[from-nat] is particularly convenient, because we can
@@ -863,7 +925,7 @@ underpins @emph{Blue Moon}, @emph{Donna}, and @emph{All I Want for
 Christmas Is You}, among many others.
 
 Bithoven replicates this single chord progression in each part of the
-song, but uses it differently in each one. This produces a slightly
+song, but may use it differently in each one. This produces a slightly
 repetition structure, where similar sounds appear through the piece
 without being perfectly duplicated.
 
@@ -909,6 +971,81 @@ the song gets longer. Similarly, we believe that the current length
 hits a nice sweet spot because there are enough notes for a chord to
 get multiple notes before there's a chord change.
 
+@section[#:tag "sec:pragmatics"]{Pragmatics}
+
+This section covers a few miscellaneous pragmatic aspects of using
+Bithoven.
+
+@bold{Implementation Dependencies.} This project is almost entirely
+self-contained using only standard Racket libraries, except for two
+exceptions.  First, as mentioned earlier, we use the
+@racketmodname[data/enumerate] library for building enumerating
+bijections. We co-developed this library in part to build Bithoven,
+however. Second, we use a @emph{portaudio} FFI to emit raw 8-bit
+unsigned audio streams. We use no other libraries for higher-level
+audio or music concepts.
+
+@bold{Bijections.} As previously mentioned, both NEStrations and
+Bithoven compositions are in bijection with a prefix of the natural
+numbers (i.e., an enumeration.) It is vital to clarify that we do
+@emph{not} have a bijection between either audio streams or tracker
+input and a natural prefix. In the case of compositions, we are
+enumerating lists of parts, so it is possible for two compositions to
+sound the same if the same notes are selected for each part. For
+instance, an ABA composition can produce the same notes as an A
+composition play three times, although the sheet music would indicate
+there are two parts played in a certain sequence.
+
+@bold{Performance.} The experience of using Bithoven is that it
+generates music instanteously on commodity hardware, while the audio
+synthesis fills the audio buffer without glitching or gaps. For a more
+quantitative evaluation, we constructed a simple benchmark and ran it
+on a 2015 Macbook Pro with a 3.1GHz Interl Core i7 processor. It takes
+approximately @bold{37ms} to load the library and @bold{30ms} to
+initialize it. We generated 100 compositions and rendered their audio
+to @code{/dev/null}, timing each step of the process. The average cost
+of each stage is as follows: each composition takes about @bold{8ms}
+to decode from the enumeration and produce tracker input, NEStrations
+are produced in about @bold{3ms}, and the instruments are evaluated
+and synthesis frames produced in @bold{40ms}. Finally, the raw audio
+frames are generated in @bold{670ms}, although in common use this does
+not happened batched, but incrementally as the song is played. In our
+main usage scenario, retro-style video games running at 60
+frames-per-second, we can generate a new song every three frames,
+which is exceedingly reasonable.
+
+@bold{Randomness.} Although we have stressed that Bithoven is not
+random, of course it is most often that elements of the set are
+selected randomly via composition of @racket[from-nat] and
+@racket[random]. As a consequence, some compositions are extremely
+unlikely to be found with Bithoven. For example, as the number of
+parts in a musical structure increases, the likelihood of selecting a
+composition using that structure increases drastically: there are far
+more compositions with five-parts than with two-parts, holding the
+number of chords fixed, so it is very unlikely to randomly choose one
+with just two parts.
+
+We had interesting experiences with non-random selection as well. For
+example, we have produced a demo video game where a single composition
+is chosen for a level, but its tempo and key change over the course of
+the level based on the actions of the player, and on the next level,
+we vary the index of the composition randomly by about 10%, so we tend
+to select a song in the same ball-park as the last level, creating a
+feel of cohesion across the game.
+
+@section[#:tag "sec:related"]{Related Work}
+
+The field of audio synthesis and computer generated music is vast. As
+well, here are many existing emulations of the Nintendo Entertainment
+System with cycle-perfect recreation of the exact waveforms produced
+by the real Ricoh RP2A03. The closest work, although it is far more
+involved and thorough, is Euterpea@~cite[bib:euterpea] and its
+supporting textbook, the @emph{Haskell School of
+Music}@~cite[bib:hsom]. While not aimed at recreation of any
+particular synthesizer, this text and library provide an extensive
+spectrum of computer music and audio synthesis tools from high-level
+music composition to instrument design and sound synthesis.
+
 @section[#:tag "sec:conclusion"]{Conclusion}
 
 We have produced a purely functional implementation of a full-stack
@@ -920,21 +1057,6 @@ rigorously defined combinatorial method. In our experience, while the
 music Bithoven produces is unlikely to win awards, it is plausible to
 most listeners as being hand-made in the era of the RP2A03.
 
-Although we have stressed that Bithoven is not random, of course it is
-most often that elements of the set are selected randomly via
-composition of @racket[from-nat] and @racket[random]. As a
-consequence, some compositions are extremely unlikely to be found with
-Bithoven. For example, as the number of parts in a musical structure
-increases, the likelihood of selecting a composition using that
-structure increases drastically. Nevertheless, non-random selection is
-possible as well. For example, we have produced a demo video game
-where a single composition is chosen for a level, but its tempo and
-key change over the course of the level based on the actions of the
-player, and on the next level, we vary the index of the composition
-randomly by about 10%, so we tend to select a song in the same
-ball-park as the last level, creating a feel of cohesion across the
-game.
-
 We believe that there is a lot more that could be done to improve the
 quality of the set of Bithoven compositions. The most glaring problem
 is its restriction to only use chords. We could, for example, change
@@ -942,9 +1064,10 @@ it so that in each set of notes for a chord, it predominately uses the
 chord but is allowed to use any tone from the scale. We have yet to
 experiment with this or other modifications.
 
-@bold{Acknowledgments.} I am indebted to the NESdev community for
+@bold{Acknowledgments.} We are indebted to the NESdev community for
 their excellent documentation on the Ricoh RP2A03, which was essential
-to implementing the synthesis engine. I am grateful for Max New and
+to implementing the synthesis engine. We are grateful for Max New and
 Robby Findler's excellent work on the @racketmodname[data/enumerate]
 Racket module, which my project builds on.
 
+@(generate-bibliography #:sec-title "References")
