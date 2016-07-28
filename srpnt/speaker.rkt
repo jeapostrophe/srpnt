@@ -6,6 +6,9 @@
 
 (require "speaker/portaudio.rkt")
 
+(define (speaker:null)
+  (speaker void void))
+
 (define (speaker:real)
   (define bp (make-bytes-player))
   (speaker
@@ -33,6 +36,7 @@
 
 (provide
  (contract-out
+  [speaker:null (-> speaker?)]
   [speaker:fork (-> speaker? speaker? speaker?)]
   [speaker:file (-> path-string? speaker?)]
   [speaker:real (-> speaker?)]))
