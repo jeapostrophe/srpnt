@@ -1,7 +1,4 @@
-all: paper.pdf paper/paper.html
+all: paper.pdf
 
-paper/paper.html: paper.scrbl
-	raco scribble --html --dest paper paper.scrbl
-
-paper.pdf: paper.scrbl
-	raco scribble --pdf paper.scrbl
+paper.pdf: paper.scrbl paper.tex
+	raco scribble --pdf ++style paper.tex paper.scrbl

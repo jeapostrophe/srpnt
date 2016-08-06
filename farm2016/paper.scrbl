@@ -66,10 +66,7 @@
    #"\\usepackage{siunitx}\n"))
 
 @title[#:style (style #f (list (tex-addition extra-tex-code)))]{Bithoven @subtitle{Gödel Encoding of Chamber Music and Functional 8-Bit Audio Synthesis}}
-@authorinfo["Jay McCarthy" "University of Massachusetts Lowell" "jay@racket-lang.org"]
-
-@category["H.5.5" "Sound and Music Computing" "Methodologies and techniques"]
-@keywords{Audio Synthesis, Computer Music, NES Emulation}
+@authorinfo["Jay McCarthy" "University of Massachusetts Lowell, USA" "jay@racket-lang.org"]
 
 @to-appear{}
 
@@ -114,6 +111,9 @@ a band of instruments and styles of play, so each composition can be
 played in one of approximately
 @COUNT-ARRANGE different arrangements
 or "NEStrations".}
+
+@category["H.5.5" "Sound and Music Computing" "Methodologies and techniques"]
+@keywords{Audio Synthesis, Computer Music, NES Emulation}
 
 @section{Introduction}
 
@@ -1025,6 +1025,8 @@ more compositions with five-parts than with two-parts, holding the
 number of chords fixed, so it is very unlikely to randomly choose one
 with just two parts.
 
+@raw-latex{\newpage}
+
 We had interesting experiences with non-random selection as well. For
 example, we have produced a demo video game where a single composition
 is chosen for a level, but its tempo and key change over the course of
@@ -1064,10 +1066,12 @@ it so that in each set of notes for a chord, it predominately uses the
 chord but is allowed to use any tone from the scale. We have yet to
 experiment with this or other modifications.
 
-@bold{Acknowledgments.} We are indebted to the NESdev community for
-their excellent documentation on the Ricoh RP2A03, which was essential
-to implementing the synthesis engine. We are grateful for Max New and
-Robby Findler's excellent work on the @racketmodname[data/enumerate]
-Racket module, which my project builds on.
+@section[#:style 'unnumbered]{Acknowledgments}
+
+We are indebted to the NESdev community for their excellent
+documentation on the Ricoh RP2A03, which was essential to implementing
+the synthesis engine. We are grateful for Max New and Robby Findler's
+excellent work on the @racketmodname[data/enumerate] Racket module,
+which my project builds on.
 
 @(generate-bibliography #:sec-title "References")
