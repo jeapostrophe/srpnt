@@ -37,7 +37,7 @@
   (name tone-names/e scales/e tempo/e
         pulse1/e pulse2/e
         triangle1/e triangle2/e
-        drums/e mhtb/e))
+        drums/e mhtb/e drum-measure/e))
 
 (define-syntax-rule (define-styles styles [id . expr] ...)
   (begin (define id (style . expr)) ...
@@ -53,19 +53,23 @@
    (old-fin/e i:triangle:basic i:triangle:plucky)
    (old-fin/e i:triangle:basic i:triangle:plucky)
    (old-fin/e i:drums:basic)
-   (old-fin/e (list 0 1 2 3))]
+   (old-fin/e (list 0 1 2 3))
+   drum-measure/e]
   [style:happy
    "Happy"
    tone-names/e (old-fin/e scale-diatonic-major) (fin/e 200)
-   pulse/e pulse/e triangle/e triangle/e drums/e (old-fin/e (list 0 1 2 3))]
+   pulse/e pulse/e triangle/e triangle/e drums/e (old-fin/e (list 0 1 2 3))
+   drum-measure/e]
   [style:sad
    "Sad"
    tone-names/e (old-fin/e scale-harmonic-minor) (fin/e 120)
-   pulse/e pulse/e triangle/e triangle/e drums/e mhtb/e]
+   pulse/e pulse/e triangle/e triangle/e drums/e (old-fin/e (list 0 1 2 3))
+   drum-measure/e]
   [style:all
    "ALL"
    tone-names/e scales/e tempo/e pulse/e pulse/e triangle/e triangle/e drums/e
-   (old-fin/e (list 0 1 2 3))])
+   (old-fin/e (list 0 1 2 3))
+   drum-measure/e])
 
 (define (make-nestration/e
          #:style [style style:all]
@@ -77,6 +81,7 @@
          #:triangle1/e [triangle1/e (style-triangle1/e style)]
          #:triangle2/e [triangle2/e (style-triangle2/e style)]
          #:drums/e [drums/e (style-drums/e style)]
+         #:drum-measure/e [drum-measure/e (style-drum-measure/e style)]
          #:mhtb/e [mhtb/e (style-mhtb/e style)]
          c)
   (match-define (vector ts ap pattern parts) c)
@@ -104,4 +109,6 @@
 
 ;; xxx contracts
 (provide (struct-out style)
+         tone-names/e
+         scales/e drums/e
          make-nestration/e)

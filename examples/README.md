@@ -1,7 +1,7 @@
 Each example below is created by running
 
 ```sh
-  racket -t srpnt/studio.rkt -- -s tmp.m4a srpnt/dev.rkt
+  racket -t srpnt/studio.rkt -- -s tmp.bin srpnt/dev.rkt
 ```
 
 and moving a different `audio` definition to the top of the `or` form.

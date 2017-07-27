@@ -76,11 +76,6 @@
 (define audio
   (or
 
-   ;; examples/bithoven-all.bin
-   ;; Composition number: 105370697650089816574974105282759653499238341156204192774604369084467049004939613509001127484518264
-   ;; Nestration number: 13606271740551781396585046
-   (use-rand-bithoven)
-
    ;; examples/bithoven-melodic-minor160.bin
    ;; Composition number: 112689913599145029760399753369564077417508307352863072009096706091575107074490822974755157820327328
    ;; Nestration number: 1947063280882832403
@@ -91,6 +86,11 @@
                  [drums/e (fin/e i:drums:off)]
                  [tempo/e (fin/e 160)])
     #f #f)
+
+   ;; examples/bithoven-all.bin
+   ;; Composition number: 105370697650089816574974105282759653499238341156204192774604369084467049004939613509001127484518264
+   ;; Nestration number: 13606271740551781396585046
+   (use-rand-bithoven)
    
    ;; examples/bithoven-natural-minor100.bin
    ;; Composition number: 151082340486227048364359446585186219936648607538270884717246070010340145820201505988133216403205486
@@ -205,7 +205,8 @@
    
    ))
 
-(provide audio)
+(provide audio
+         use-bithoven)
 
 (provide (all-defined-out))
 

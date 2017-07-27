@@ -35,4 +35,10 @@ TODO:
       27      57     531 ./srpnt/player.rkt
       98     319    3298 ./srpnt/studio-x.rkt
       43     107    1303 ./srpnt/studio.rkt
+
 * implement new model
+
+* more drum loops
+  https://mail.google.com/mail/u/0/#inbox/1571e5d23ce4e1e5
+
+* bithoven for musical password hash?

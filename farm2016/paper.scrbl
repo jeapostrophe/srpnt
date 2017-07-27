@@ -427,7 +427,7 @@ reactive programming (FRP) for writing instruments@~cite[bib:frp].
       (define per
         (fx+ base-per (eval-spec p* f)))
       (define volume (eval-spec v* f))
-      (wave:pulse duty per volume))))            
+      (wave:pulse duty per volume))))
 ]}
 
 @Figure-ref["fig:i:pulse"] shows the constructor for @tech{pulse} wave
