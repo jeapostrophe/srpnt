@@ -30,6 +30,7 @@
   (cons comp strat))
 
 (define (basic-audio pulse1 pulse2 triangle1 triangle2 drums drum-measure
+                     #:bpm [bpm 120]
                      #:measures [measures #f])
   (define the-scale scale-diatonic-major)
   (define how-many-notes-in-scale (length (the-scale 'C)))
@@ -53,7 +54,7 @@
                      `(0.25
                        (((,off . 0) (,off . 0) (,off . 0) (,off . 0)) . #f)
                        . #f)))))
-        (vector 'C the-scale 120
+        (vector 'C the-scale bpm
                 pulse1 pulse2 triangle1 triangle2 drums
                 (list 0 1 2 3) 4 0 0 0
                 (hasheq 'P drum-measure)
@@ -75,6 +76,21 @@
 
 (define audio
   (or
+
+   (use-rand-bithoven)
+
+   (use-bithoven
+    #:style
+    (struct-copy style style:classic
+                 [scales/e (fin/e scale-diatonic-major)]
+                 [tempo/e (fin/e 180)])
+    #f #f)
+   
+   #;(basic-audio i:pulse:off i:pulse:off i:triangle:plucky i:triangle:off i:drums:basic
+                beat:straight-rock
+                #:bpm 90
+                #:measures 60)
+   
 
    ;; examples/bithoven-melodic-minor160.bin
    ;; Composition number: 112689913599145029760399753369564077417508307352863072009096706091575107074490822974755157820327328
