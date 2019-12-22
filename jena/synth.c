@@ -6,7 +6,7 @@
 #define NUM_SECONDS (5)
 #define SAMPLE_RATE (44100)
 #define FRAMES_PER_BUFFER (SAMPLE_RATE/60)
-#define TABLE_SIZE (200)
+#define FREQ (261.63)
 
 void maybeDie( PaError err ) {
   if ( err == paNoError ) { return; }
@@ -38,12 +38,13 @@ int main(void) {
   maybeDie( Pa_StartStream( stream ) );
 
   printf("Play for %d seconds.\n", NUM_SECONDS );
-  int phase = 0;
+  float cycle_per = 0.0;
   for ( int i = 0; i < NUM_SECONDS*60; i++ ) {
     for ( int j = 0; j < FRAMES_PER_BUFFER; j++ ) {
-      buf[j] = (float) sin( ((double)phase/(double)TABLE_SIZE) * M_PI * 2. );
-      phase++;
-      if( phase >= TABLE_SIZE ) { phase -= TABLE_SIZE; } }
+      float step_per = (float)FREQ / (float)SAMPLE_RATE;
+      float next_per = cycle_per + step_per;
+      cycle_per = next_per - floorf( next_per );
+      buf[j] = (float) sin( cycle_per * M_PI * 2.0 ); }
     maybeDie( Pa_WriteStream( stream, buf, FRAMES_PER_BUFFER ) ); }
   
   maybeDie( Pa_StopStream( stream ) );
