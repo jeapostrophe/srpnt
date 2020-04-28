@@ -77,7 +77,7 @@
 (define audio
   (or
 
-   (use-rand-bithoven)
+   #;(use-rand-bithoven)
 
    (use-bithoven
     #:style

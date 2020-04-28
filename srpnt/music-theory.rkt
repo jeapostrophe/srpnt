@@ -240,3 +240,9 @@
 
 (module+ test
   (chord-triad (mode lazy-scale 3)))
+
+(module+ main
+  (define s (scale-diatonic-major 'C))
+  (chord-triad (mode s 0))
+  (chord-triad (mode s 3))
+  (chord-triad (mode s 4)))
